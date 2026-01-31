@@ -1,0 +1,101 @@
+import { useState } from "react";
+import type { EventPoint } from "../types/event";
+import type { EnergyJsonData } from "../types/energyEvent";
+import type { ClarityJsonData } from "../types/clarityEvent";
+import { parseEventsFromJson, parseEnergyJson, parseClarityJson } from "../utils/parseEvents";
+
+interface JsonUploaderProps {
+  onJsonLoaded: (events: EventPoint[]) => void;
+  onEnergyLoaded?: (data: EnergyJsonData | null) => void;
+  onClarityLoaded?: (data: ClarityJsonData | null) => void;
+  samplePath: string;
+  sampleLabel: string;
+}
+
+function processLoadedData(
+  data: unknown,
+  onJsonLoaded: (events: EventPoint[]) => void,
+  onEnergyLoaded?: (data: EnergyJsonData | null) => void,
+  onClarityLoaded?: (data: ClarityJsonData | null) => void
+) {
+  const events = parseEventsFromJson(data);
+  onJsonLoaded(events);
+  const energy = parseEnergyJson(data);
+  onEnergyLoaded?.(energy ?? null);
+  const clarity = parseClarityJson(data);
+  onClarityLoaded?.(clarity ?? null);
+}
+
+export function JsonUploader({
+  onJsonLoaded,
+  onEnergyLoaded,
+  onClarityLoaded,
+  samplePath,
+  sampleLabel,
+}: JsonUploaderProps) {
+  const [sampleError, setSampleError] = useState<string | null>(null);
+  const [loadedInfo, setLoadedInfo] = useState<{ source: string; eventCount: number } | null>(null);
+  const inputId = `json-upload-${samplePath.replace(/\W/g, "_")}`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSampleError(null);
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result as string);
+        const events = parseEventsFromJson(data);
+        processLoadedData(data, onJsonLoaded, onEnergyLoaded, onClarityLoaded);
+        setLoadedInfo({ source: file.name, eventCount: events.length });
+      } catch (err) {
+        console.error("JSON 파싱 실패:", err);
+        setLoadedInfo(null);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const loadSample = () => {
+    setSampleError(null);
+    fetch(samplePath)
+      .then((res) => {
+        if (!res.ok) throw new Error("파일 없음 (해당 노트북에서 JSON 생성 후 public 복사 필요)");
+        return res.json();
+      })
+      .then((data) => {
+        const events = parseEventsFromJson(data);
+        processLoadedData(data, onJsonLoaded, onEnergyLoaded, onClarityLoaded);
+        setLoadedInfo({ source: `샘플 (${samplePath.replace(/^\//, "")})`, eventCount: events.length });
+      })
+      .catch((err) => {
+        setSampleError(err instanceof Error ? err.message : "로드 실패");
+        setLoadedInfo(null);
+      });
+  };
+
+  return (
+    <div className="uploader">
+      <input
+        type="file"
+        accept=".json"
+        onChange={handleChange}
+        style={{ display: "none" }}
+        id={inputId}
+      />
+      <button type="button" onClick={() => document.getElementById(inputId)?.click()}>
+        분석 JSON 업로드
+      </button>
+      <button type="button" onClick={loadSample} title={`${samplePath} 샘플`}>
+        {sampleLabel}
+      </button>
+      {sampleError && <span className="uploader-error">{sampleError}</span>}
+      {loadedInfo && (
+        <span className="uploader-loaded">
+          ✓ {loadedInfo.source} ({loadedInfo.eventCount}개 이벤트) 로드됨
+        </span>
+      )}
+    </div>
+  );
+}
