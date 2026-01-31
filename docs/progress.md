@@ -34,12 +34,18 @@ flowchart LR
         E1[01_energy]
         E2[02_clarity]
         E3[03_temporal]
+        E4[04_spectral]
+        E5[05_context]
         E1 --> E1a[RMS · 대역 에너지<br/>energy_score]
         E2 --> E2a[Attack time<br/>clarity_score]
         E3 --> E3a[가변 그리드 · 로컬 템포<br/>temporal_score]
+        E4 --> E4a[centroid · bandwidth · flatness<br/>focus_score]
+        E5 --> E5a[Local SNR · 대역별 마스킹<br/>dependency_score]
         E1a --> J3[onset_events_energy.json]
         E2a --> J3
         E3a --> J4[onset_events_temporal.json]
+        E4a --> J5[onset_events_spectral.json]
+        E5a --> J6[onset_events_context.json]
     end
 
     subgraph web["웹"]
@@ -57,10 +63,14 @@ flowchart LR
     D --> E1
     D --> E2
     D --> E3
+    D --> E4
+    D --> E5
     J1 --> W1
     J2 --> W1
     J3 --> W1
     J4 --> W1
+    J5 --> W1
+    J6 --> W1
 ```
 
 ---
@@ -94,13 +104,30 @@ flowchart LR
 - temporal_score = grid_align × repetition × strength_weight(0.85~1.0).
 - **저장**: `onset_events_temporal.json`. `web/public` 복사.
 
+**04_spectral.py**
+
+- **Spectral Focus** (layering.md 4) 구현. "주파수 에너지가 한 대역에 뭉쳐 또렷한가".
+- 이벤트 구간 [mid_prev, mid_next]에서 STFT → spectral_centroid, spectral_bandwidth, spectral_flatness.
+- focus_score = 1 - 0.5×norm(flatness) - 0.5×norm(bandwidth). flatness·bandwidth 낮을수록 포커스 높음.
+- **저장**: `onset_events_spectral.json`. `web/public` 복사.
+
+**05_context.py**
+
+- **Context Dependency** (layering.md 5) 구현. "혼자 있을 때만 들리는가? 다른 소리에 묻히는가?"
+- Local SNR: 이벤트 윈도우(±50ms) 에너지 vs 배경 윈도우(직전/직후 100ms) 에너지. `snr_db = 10*log10(E_event/E_bg)`
+- 대역별 마스킹: 이벤트/배경 스펙트럼을 Low(20-150Hz)/Mid(150-2kHz)/High(2k-10kHz) 대역별로 비교. `masking_ratio = E_bg/E_event`
+- dependency_score = 1 - norm(SNR). SNR 낮을수록 의존성 높음.
+- **저장**: `onset_events_context.json`. `web/public` 복사.
+
 **현재 상태**
 
 | 항목 | 메모 |
 |------|------|
 | 에너지 | 일관성 양호. |
 | Clarity | 추가 검증 필요. 드럼 트랙에서는 의미가 제한적일 수 있음. |
-| Temporal | 가변 그리드·로컬 템포·beat 정규화 IOI 적용 완료. 다음: Spectral Focus (4) 또는 Context Dependency (5). |
+| Temporal | 가변 그리드·로컬 템포·beat 정규화 IOI 적용 완료. |
+| Spectral | centroid/bandwidth/flatness → focus_score 적용 완료. |
+| Context | Local SNR·대역별 마스킹 → dependency_score 적용 완료. |
 
 ---
 
@@ -167,6 +194,31 @@ flowchart LR
 | temporal_score | — | `grid_align × repetition × strength_weight(0.85~1.0)`. robust_norm |
 | JSON | — | `grid_align_score`, `repetition_score`, `temporal_score`, `ioi_prev/next` |
 
+### 2.6 04_spectral.py (02_layered_onset_export)
+
+| 단계 | 값 | 가공 |
+|------|-----|------|
+| Onset | 01_energy와 동일 | `refine_onset_times`까지 동일 |
+| 구간 | 이벤트 i | [mid_prev, mid_next]. seg = y[start:end] |
+| STFT | seg, n_fft=2048 | `librosa.stft` → S (power spectrum) |
+| centroid | S | `librosa.feature.spectral_centroid` (Hz) |
+| bandwidth | S | `librosa.feature.spectral_bandwidth` (Hz) |
+| flatness | S | `librosa.feature.spectral_flatness` (0~1) |
+| focus_score | flatness, bandwidth | `1 - 0.5×norm(flat) - 0.5×norm(bw)`. robust_norm |
+| JSON | — | `spectral_centroid_hz`, `spectral_bandwidth_hz`, `spectral_flatness`, `focus_score` |
+
+### 2.7 05_context.py (02_layered_onset_export)
+
+| 단계 | 값 | 가공 |
+|------|-----|------|
+| Onset | 01_energy와 동일 | `refine_onset_times`까지 동일 |
+| 이벤트 윈도우 | onset ±50ms | `seg_event = y[ev_start:ev_end]` |
+| 배경 윈도우 | 직전/직후 100ms | `seg_bg = concat(seg_bg_prev, seg_bg_next)` |
+| Local SNR | E_event, E_bg | `snr_db = 10 * log10(E_event / E_bg)` |
+| 대역별 마스킹 | rfft, band_hz | Low(20-150Hz), Mid(150-2kHz), High(2k-10kHz). `masking = E_bg_band / E_event_band` |
+| dependency_score | snr_db | `1 - robust_norm(snr_db)`. SNR 낮을수록 의존성 높음 |
+| JSON | — | `snr_db`, `masking_low`, `masking_mid`, `masking_high`, `dependency_score` |
+
 ---
 
 ## 3. 오디오 엔진 (파일별)
@@ -225,11 +277,13 @@ drums stem 확보 → 01_explore·03_visualize_point 드럼 입력으로 사용.
 
 ---
 
-### 3.4 01_energy.ipynb, 02_clarity.ipynb, 03_temporal.py (02_layered_onset_export)
+### 3.4 01_energy.ipynb, 02_clarity.ipynb, 03_temporal.py, 04_spectral.py, 05_context.py (02_layered_onset_export)
 
 - **01_energy**: 구간별 RMS·대역 에너지 → energy_score, E_norm_* → JSON. §2.3 참고.
 - **02_clarity**: 구간별 Attack Time(10%→90%) → clarity_score → JSON. §2.4 참고.
 - **03_temporal**: 가변 그리드·로컬 템포 → grid_align_score, repetition_score → temporal_score → JSON. §2.5 참고.
+- **04_spectral**: 구간별 spectral centroid/bandwidth/flatness → focus_score → JSON. §2.6 참고.
+- **05_context**: Local SNR·대역별 마스킹 → dependency_score → JSON. §2.7 참고.
 
 ---
 

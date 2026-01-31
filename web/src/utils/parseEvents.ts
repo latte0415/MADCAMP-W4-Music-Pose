@@ -2,6 +2,8 @@ import type { EventPoint } from "../types/event";
 import type { EnergyEvent, EnergyJsonData } from "../types/energyEvent";
 import type { ClarityEvent, ClarityJsonData } from "../types/clarityEvent";
 import type { TemporalEvent, TemporalJsonData } from "../types/temporalEvent";
+import type { SpectralEvent, SpectralJsonData } from "../types/spectralEvent";
+import type { ContextEvent, ContextJsonData } from "../types/contextEvent";
 
 const DEFAULT_POINT_COLOR = "#5a9fd4";
 
@@ -78,6 +80,94 @@ export function parseTemporalJson(data: unknown): TemporalJsonData | null {
       hop_length: Number(m.hop_length ?? 256),
       bpm: Number(m.bpm ?? 0),
       bpm_dynamic_used: Boolean(m.bpm_dynamic_used ?? false),
+      total_events: Number(m.total_events ?? events.length),
+    },
+  };
+}
+
+/** 04_spectral 형식(metadata + focus_score, spectral_centroid_hz) → Spectral 데이터 반환, 아니면 null */
+export function parseSpectralJson(data: unknown): SpectralJsonData | null {
+  if (!data || typeof data !== "object") return null;
+  const obj = data as Record<string, unknown>;
+  const metaRaw = obj.metadata ?? obj.meta;
+  if (metaRaw == null || typeof metaRaw !== "object" || !Array.isArray(obj.events)) return null;
+  const rawEvents = obj.events as Record<string, unknown>[];
+  const hasSpectral = rawEvents.some(
+    (e) => e && typeof e === "object" && ("focus_score" in e || "spectral_centroid_hz" in e)
+  );
+  if (!hasSpectral) return null;
+
+  const m = metaRaw as Record<string, unknown>;
+  const events: SpectralEvent[] = rawEvents
+    .filter((item): item is Record<string, unknown> => item != null && typeof item === "object")
+    .map((item) => {
+      const centroid = item.spectral_centroid_hz;
+      const bandwidth = item.spectral_bandwidth_hz;
+      const flatness = item.spectral_flatness;
+      return {
+        index: Number(item.index ?? 0),
+        time: Number(item.time ?? item.t ?? 0),
+        frame: Number(item.frame ?? 0),
+        strength: Number(item.strength ?? 0),
+        spectral_centroid_hz: centroid != null && typeof centroid === "number" ? centroid : null,
+        spectral_bandwidth_hz: bandwidth != null && typeof bandwidth === "number" ? bandwidth : null,
+        spectral_flatness: flatness != null && typeof flatness === "number" ? flatness : null,
+        focus_score: Number(item.focus_score ?? 0),
+      };
+    });
+
+  return {
+    events,
+    meta: {
+      source: String(m.source ?? ""),
+      sr: Number(m.sr ?? 22050),
+      duration_sec: Number(m.duration_sec ?? 0),
+      hop_length: Number(m.hop_length ?? 256),
+      n_fft: Number(m.n_fft ?? 2048),
+      bpm: Number(m.bpm ?? 0),
+      total_events: Number(m.total_events ?? events.length),
+    },
+  };
+}
+
+/** 05_context 형식(metadata + snr_db, dependency_score) → Context 데이터 반환, 아니면 null */
+export function parseContextJson(data: unknown): ContextJsonData | null {
+  if (!data || typeof data !== "object") return null;
+  const obj = data as Record<string, unknown>;
+  const metaRaw = obj.metadata ?? obj.meta;
+  if (metaRaw == null || typeof metaRaw !== "object" || !Array.isArray(obj.events)) return null;
+  const rawEvents = obj.events as Record<string, unknown>[];
+  const hasContext = rawEvents.some(
+    (e) => e && typeof e === "object" && ("snr_db" in e || "dependency_score" in e)
+  );
+  if (!hasContext) return null;
+
+  const m = metaRaw as Record<string, unknown>;
+  const events: ContextEvent[] = rawEvents
+    .filter((item): item is Record<string, unknown> => item != null && typeof item === "object")
+    .map((item) => ({
+      index: Number(item.index ?? 0),
+      time: Number(item.time ?? item.t ?? 0),
+      frame: Number(item.frame ?? 0),
+      strength: Number(item.strength ?? 0),
+      snr_db: Number(item.snr_db ?? 0),
+      masking_low: Number(item.masking_low ?? 0),
+      masking_mid: Number(item.masking_mid ?? 0),
+      masking_high: Number(item.masking_high ?? 0),
+      dependency_score: Number(item.dependency_score ?? 0),
+    }));
+
+  return {
+    events,
+    meta: {
+      source: String(m.source ?? ""),
+      sr: Number(m.sr ?? 22050),
+      duration_sec: Number(m.duration_sec ?? 0),
+      hop_length: Number(m.hop_length ?? 256),
+      n_fft: Number(m.n_fft ?? 2048),
+      bpm: Number(m.bpm ?? 0),
+      event_win_sec: Number(m.event_win_sec ?? 0.05),
+      bg_win_sec: Number(m.bg_win_sec ?? 0.1),
       total_events: Number(m.total_events ?? events.length),
     },
   };

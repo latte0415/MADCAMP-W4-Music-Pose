@@ -9,6 +9,8 @@
 - **01_energy** → `onset_events_energy.json` (이벤트별 RMS/대역별 에너지)
 - **02_clarity** → `onset_events_clarity.json` (이벤트별 어택 명확도)
 - **03_temporal** → `onset_events_temporal.json` (이벤트별 박자 기여도/반복성)
+- **04_spectral** → `onset_events_spectral.json` (이벤트별 주파수 집중도)
+- **05_context** → `onset_events_context.json` (이벤트별 맥락 의존성)
 
 ## Web
 - 수용 형식: `onset_times_sec`, `events[]`, 배열 직접
@@ -288,13 +290,140 @@
 
 ---
 
-## 7. Web (시각화) — 수용 JSON 형식
+## 7. 04_spectral.py → onset_events_spectral.json
+
+**출력 경로**: `audio_engine/samples/onset_events_spectral.json`
+
+**생성 시점**: 주파수 집중도 계산 후 JSON 저장 셀 실행 시
+
+**용도**: 웹에서 이벤트별 스펙트럴 중심/대역폭/플랫니스 및 포커스 점수 시각화.
+
+**스키마** (최상위):
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `metadata` | object | 메타데이터 객체 |
+| `events` | object[] | 이벤트 배열 |
+
+**metadata 항목**:
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `source` | string | 입력 오디오 파일명 |
+| `sr` | number | 샘플링 레이트 (Hz) |
+| `duration_sec` | number | 오디오 길이 (초) |
+| `hop_length` | number | hop length (기본 256) |
+| `n_fft` | number | FFT 크기 (기본 2048) |
+| `bpm` | number | 추정 BPM |
+| `total_events` | number | 총 이벤트 수 |
+
+**events[] 항목**:
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `index` | number | 이벤트 인덱스 |
+| `time` | number | 시간(초), 소수 넷째 자리 |
+| `frame` | number | 프레임 번호 |
+| `strength` | number | onset strength |
+| `spectral_centroid_hz` | number \| null | 스펙트럴 중심 (Hz), 유효하지 않으면 null |
+| `spectral_bandwidth_hz` | number \| null | 스펙트럴 대역폭 (Hz), 유효하지 않으면 null |
+| `spectral_flatness` | number \| null | 스펙트럴 플랫니스 0~1, 유효하지 않으면 null |
+| `focus_score` | number | 주파수 집중도 0~1 (플랫니스·대역폭 낮을수록 높음) |
+
+**예시**:
+
+```json
+{
+  "metadata": {
+    "source": "sample_ropes_short.mp3",
+    "sr": 22050,
+    "duration_sec": 31.11,
+    "hop_length": 256,
+    "n_fft": 2048,
+    "bpm": 120.5,
+    "total_events": 100
+  },
+  "events": [
+    { "index": 0, "time": 0.1234, "frame": 10, "strength": 5.2, "spectral_centroid_hz": 1200.5, "spectral_bandwidth_hz": 800.2, "spectral_flatness": 0.3, "focus_score": 0.75 }
+  ]
+}
+```
+
+---
+
+## 8. 05_context.py → onset_events_context.json
+
+**출력 경로**: `audio_engine/samples/onset_events_context.json`
+
+**생성 시점**: 맥락 의존성 계산 후 JSON 저장 셀 실행 시
+
+**용도**: 웹에서 이벤트별 Local SNR 및 대역별 마스킹, 맥락 의존성 점수 시각화.
+
+**스키마** (최상위):
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `metadata` | object | 메타데이터 객체 |
+| `events` | object[] | 이벤트 배열 |
+
+**metadata 항목**:
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `source` | string | 입력 오디오 파일명 |
+| `sr` | number | 샘플링 레이트 (Hz) |
+| `duration_sec` | number | 오디오 길이 (초) |
+| `hop_length` | number | hop length (기본 256) |
+| `n_fft` | number | FFT 크기 (기본 2048) |
+| `bpm` | number | 추정 BPM |
+| `event_win_sec` | number | 이벤트 윈도우 크기 (초, 기본 0.05) |
+| `bg_win_sec` | number | 배경 윈도우 크기 (초, 기본 0.1) |
+| `total_events` | number | 총 이벤트 수 |
+
+**events[] 항목**:
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `index` | number | 이벤트 인덱스 |
+| `time` | number | 시간(초), 소수 넷째 자리 |
+| `frame` | number | 프레임 번호 |
+| `strength` | number | onset strength |
+| `snr_db` | number | 이벤트-배경 SNR (dB) |
+| `masking_low` | number | 저역(20-150Hz) 마스킹 비율 0~1 |
+| `masking_mid` | number | 중역(150-2kHz) 마스킹 비율 0~1 |
+| `masking_high` | number | 고역(2k-10kHz) 마스킹 비율 0~1 |
+| `dependency_score` | number | 맥락 의존성 점수 0~1 (높을수록 의존적) |
+
+**예시**:
+
+```json
+{
+  "metadata": {
+    "source": "sample_ropes_short.mp3",
+    "sr": 22050,
+    "duration_sec": 31.11,
+    "hop_length": 256,
+    "n_fft": 2048,
+    "bpm": 120.5,
+    "event_win_sec": 0.05,
+    "bg_win_sec": 0.1,
+    "total_events": 100
+  },
+  "events": [
+    { "index": 0, "time": 0.1234, "frame": 10, "strength": 5.2, "snr_db": 12.5, "masking_low": 0.2, "masking_mid": 0.3, "masking_high": 0.1, "dependency_score": 0.35 }
+  ]
+}
+```
+
+---
+
+## 9. Web (시각화) — 수용 JSON 형식
 
 **용도**: `JsonUploader` / `parseEventsFromJson`으로 로드해 파형 위 이벤트 포인트 표시.
 
 **수용 형식** (우선순위 순):
 
-### 7-1. onset_times_sec (audio_engine 호환)
+### 9-1. onset_times_sec (audio_engine 호환)
 
 ```json
 {
@@ -305,7 +434,7 @@
 - `onset_times_sec` 배열만 있으면 각 요소를 `t`(초)로 하는 이벤트로 변환.
 - `strength`=0.7, `layer`="onset", 기본 색상 적용.
 
-### 7-2. events 배열 (레이어/세기/색상/질감 포함)
+### 9-2. events 배열 (레이어/세기/색상/질감 포함)
 
 ```json
 {
@@ -325,7 +454,7 @@
 | `color` | string | X | hex 색상. 없으면 기본색 |
 | `layer` | string | X | 레이어명. 기본 "default" |
 
-### 7-3. 배열 직접 (events 래퍼 없이)
+### 9-3. 배열 직접 (events 래퍼 없이)
 
 ```json
 [

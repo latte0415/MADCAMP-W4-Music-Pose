@@ -5,14 +5,18 @@ import { WaveformWithOverlay } from "./components/WaveformWithOverlay";
 import { Tab04EnergyView } from "./components/Tab04EnergyView";
 import { Tab05ClarityView } from "./components/Tab05ClarityView";
 import { Tab06TemporalView } from "./components/Tab06TemporalView";
+import { Tab07SpectralView } from "./components/Tab07SpectralView";
+import { Tab08ContextView } from "./components/Tab08ContextView";
 import { LayerFilterPanel } from "./components/LayerFilterPanel";
 import type { EventPoint } from "./types/event";
 import type { EnergyJsonData } from "./types/energyEvent";
 import type { ClarityJsonData } from "./types/clarityEvent";
 import type { TemporalJsonData } from "./types/temporalEvent";
+import type { SpectralJsonData } from "./types/spectralEvent";
+import type { ContextJsonData } from "./types/contextEvent";
 import "./App.css";
 
-type TabId = "01" | "03" | "04" | "05" | "06";
+type TabId = "01" | "03" | "04" | "05" | "06" | "07" | "08";
 
 const TABS: { id: TabId; label: string; samplePath: string }[] = [
   { id: "01", label: "01 Explore", samplePath: "/onset_beats.json" },
@@ -20,6 +24,8 @@ const TABS: { id: TabId; label: string; samplePath: string }[] = [
   { id: "04", label: "04 Energy", samplePath: "/onset_events_energy.json" },
   { id: "05", label: "05 Clarity", samplePath: "/onset_events_clarity.json" },
   { id: "06", label: "06 Temporal", samplePath: "/onset_events_temporal.json" },
+  { id: "07", label: "07 Spectral", samplePath: "/onset_events_spectral.json" },
+  { id: "08", label: "08 Context", samplePath: "/onset_events_context.json" },
 ];
 
 function getUniqueLayers(events: EventPoint[]): string[] {
@@ -37,6 +43,8 @@ function App() {
   const [tabEnergyData, setTabEnergyData] = useState<Partial<Record<TabId, EnergyJsonData | null>>>({});
   const [tabClarityData, setTabClarityData] = useState<Partial<Record<TabId, ClarityJsonData | null>>>({});
   const [tabTemporalData, setTabTemporalData] = useState<Partial<Record<TabId, TemporalJsonData | null>>>({});
+  const [tabSpectralData, setTabSpectralData] = useState<Partial<Record<TabId, SpectralJsonData | null>>>({});
+  const [tabContextData, setTabContextData] = useState<Partial<Record<TabId, ContextJsonData | null>>>({});
 
   const handleJsonLoaded = useCallback(
     (newEvents: EventPoint[]) => {
@@ -66,6 +74,20 @@ function App() {
   const handleTemporalLoaded = useCallback(
     (data: TemporalJsonData | null) => {
       setTabTemporalData((prev) => ({ ...prev, [activeTab]: data }));
+    },
+    [activeTab]
+  );
+
+  const handleSpectralLoaded = useCallback(
+    (data: SpectralJsonData | null) => {
+      setTabSpectralData((prev) => ({ ...prev, [activeTab]: data }));
+    },
+    [activeTab]
+  );
+
+  const handleContextLoaded = useCallback(
+    (data: ContextJsonData | null) => {
+      setTabContextData((prev) => ({ ...prev, [activeTab]: data }));
     },
     [activeTab]
   );
@@ -114,6 +136,8 @@ function App() {
                   onEnergyLoaded={tab.id === "04" ? handleEnergyLoaded : undefined}
                   onClarityLoaded={tab.id === "05" ? handleClarityLoaded : undefined}
                   onTemporalLoaded={tab.id === "06" ? handleTemporalLoaded : undefined}
+                  onSpectralLoaded={tab.id === "07" ? handleSpectralLoaded : undefined}
+                  onContextLoaded={tab.id === "08" ? handleContextLoaded : undefined}
                   samplePath={tab.samplePath}
                   sampleLabel={`${tab.label} 샘플 로드`}
                 />
@@ -134,6 +158,16 @@ function App() {
                   <Tab06TemporalView
                     audioUrl={audioUrl}
                     temporalData={tabTemporalData["06"] ?? null}
+                  />
+                ) : tab.id === "07" ? (
+                  <Tab07SpectralView
+                    audioUrl={audioUrl}
+                    spectralData={tabSpectralData["07"] ?? null}
+                  />
+                ) : tab.id === "08" ? (
+                  <Tab08ContextView
+                    audioUrl={audioUrl}
+                    contextData={tabContextData["08"] ?? null}
                   />
                 ) : (
                   <>
