@@ -173,7 +173,7 @@ export function Tab04EnergyView({ audioUrl, energyData }: Tab04EnergyViewProps) 
       )}
       {meta && hasEnergyData && (
         <p className="energy-meta">
-          {meta.source} · {meta.duration_sec.toFixed(1)}s · RMS {meta.energy_rms_min.toFixed(6)} ~ {meta.energy_rms_max.toFixed(4)} · {events.length}개 이벤트
+          <strong>입력 파일:</strong> {meta.source} · {meta.duration_sec.toFixed(1)}s · RMS {meta.energy_rms_min.toFixed(6)} ~ {meta.energy_rms_max.toFixed(4)} · {events.length}개 이벤트
         </p>
       )}
 

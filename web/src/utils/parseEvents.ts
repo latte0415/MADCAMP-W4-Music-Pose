@@ -1,6 +1,7 @@
 import type { EventPoint } from "../types/event";
 import type { EnergyEvent, EnergyJsonData } from "../types/energyEvent";
 import type { ClarityEvent, ClarityJsonData } from "../types/clarityEvent";
+import type { TemporalEvent, TemporalJsonData } from "../types/temporalEvent";
 
 const DEFAULT_POINT_COLOR = "#5a9fd4";
 
@@ -33,6 +34,50 @@ export function parseClarityJson(data: unknown): ClarityJsonData | null {
       sr: Number(m.sr ?? 22050),
       hop_length: Number(m.hop_length ?? 256),
       bpm: Number(m.bpm ?? 0),
+      total_events: Number(m.total_events ?? events.length),
+    },
+  };
+}
+
+/** 03_temporal 형식(metadata + grid_align_score, temporal_score) → Temporal 데이터 반환, 아니면 null */
+export function parseTemporalJson(data: unknown): TemporalJsonData | null {
+  if (!data || typeof data !== "object") return null;
+  const obj = data as Record<string, unknown>;
+  const metaRaw = obj.metadata ?? obj.meta;
+  if (metaRaw == null || typeof metaRaw !== "object" || !Array.isArray(obj.events)) return null;
+  const rawEvents = obj.events as Record<string, unknown>[];
+  const hasTemporal = rawEvents.some(
+    (e) => e && typeof e === "object" && ("grid_align_score" in e || "temporal_score" in e)
+  );
+  if (!hasTemporal) return null;
+
+  const m = metaRaw as Record<string, unknown>;
+  const events: TemporalEvent[] = rawEvents
+    .filter((item): item is Record<string, unknown> => item != null && typeof item === "object")
+    .map((item) => {
+      const ev: TemporalEvent = {
+        index: Number(item.index ?? 0),
+        time: Number(item.time ?? item.t ?? 0),
+        frame: Number(item.frame ?? 0),
+        strength: Number(item.strength ?? 0),
+        grid_align_score: Number(item.grid_align_score ?? 0),
+        repetition_score: Number(item.repetition_score ?? 0),
+        temporal_score: Number(item.temporal_score ?? 0),
+      };
+      if (item.ioi_prev != null) ev.ioi_prev = Number(item.ioi_prev);
+      if (item.ioi_next != null) ev.ioi_next = Number(item.ioi_next);
+      return ev;
+    });
+
+  return {
+    events,
+    meta: {
+      source: String(m.source ?? ""),
+      sr: Number(m.sr ?? 22050),
+      duration_sec: Number(m.duration_sec ?? 0),
+      hop_length: Number(m.hop_length ?? 256),
+      bpm: Number(m.bpm ?? 0),
+      bpm_dynamic_used: Boolean(m.bpm_dynamic_used ?? false),
       total_events: Number(m.total_events ?? events.length),
     },
   };

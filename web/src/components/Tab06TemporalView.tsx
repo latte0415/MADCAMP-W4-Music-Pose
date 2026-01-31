@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
-import type { ClarityEvent, ClarityJsonData } from "../types/clarityEvent";
+import type { TemporalEvent, TemporalJsonData } from "../types/temporalEvent";
 
 const WAVEFORM_HEIGHT = 100;
 const TRACK_HEIGHT = 56;
@@ -11,9 +11,9 @@ const ZOOM_FACTOR = 1.5;
 const MIN_ZOOM = 10;
 const MAX_ZOOM = 500;
 
-interface Tab05ClarityViewProps {
+interface Tab06TemporalViewProps {
   audioUrl: string | null;
-  clarityData: ClarityJsonData | null;
+  temporalData: TemporalJsonData | null;
 }
 
 function norm01(arr: number[]): { min: number; max: number; fn: (v: number) => number } {
@@ -24,7 +24,7 @@ function norm01(arr: number[]): { min: number; max: number; fn: (v: number) => n
   return { min, max, fn: (v) => (v - min) / span };
 }
 
-export function Tab05ClarityView({ audioUrl, clarityData }: Tab05ClarityViewProps) {
+export function Tab06TemporalView({ audioUrl, temporalData }: Tab06TemporalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -123,35 +123,42 @@ export function Tab05ClarityView({ audioUrl, clarityData }: Tab05ClarityViewProp
     );
   }
 
-  const events = clarityData?.events ?? [];
-  const meta = clarityData?.meta;
-  const hasClarityData = clarityData != null && events.length > 0;
+  const events = temporalData?.events ?? [];
+  const meta = temporalData?.meta;
+  const hasTemporalData = temporalData != null && events.length > 0;
 
-  const clarityNorm = norm01(events.map((e: ClarityEvent) => e.clarity_score));
-  const attackNorm = norm01(events.map((e: ClarityEvent) => e.attack_time_ms));
+  const gridAlignNorm = norm01(events.map((e: TemporalEvent) => e.grid_align_score));
+  const repetitionNorm = norm01(events.map((e: TemporalEvent) => e.repetition_score));
+  const temporalNorm = norm01(events.map((e: TemporalEvent) => e.temporal_score));
 
   const TRACKS: {
     key: string;
     label: string;
     color: string;
-    getR: (e: ClarityEvent) => number;
+    getR: (e: TemporalEvent) => number;
   }[] = [
     {
-      key: "clarity",
-      label: "Clarity Score (어택 명확도)",
-      color: "#5a9fd4",
-      getR: (e) => 2 + clarityNorm.fn(e.clarity_score) * 8,
+      key: "grid_align",
+      label: "Grid Align Score (비트 그리드 정렬도)",
+      color: "#27ae60",
+      getR: (e) => 2 + gridAlignNorm.fn(e.grid_align_score) * 8,
     },
     {
-      key: "attack",
-      label: "Attack Time (ms) — 짧을수록 또렷함",
-      color: "#e67e22",
-      getR: (e) => 2 + attackNorm.fn(e.attack_time_ms) * 8,
+      key: "repetition",
+      label: "Repetition Score (반복성)",
+      color: "#9b59b6",
+      getR: (e) => 2 + repetitionNorm.fn(e.repetition_score) * 8,
+    },
+    {
+      key: "temporal",
+      label: "Temporal Score (박자 기여도)",
+      color: "#e74c3c",
+      getR: (e) => 2 + temporalNorm.fn(e.temporal_score) * 8,
     },
   ];
 
   return (
-    <div className="tab05-clarity-view">
+    <div className="tab06-temporal-view">
       <div className="waveform-controls">
         <button type="button" onClick={togglePlay} disabled={duration === 0}>
           재생
@@ -169,30 +176,31 @@ export function Tab05ClarityView({ audioUrl, clarityData }: Tab05ClarityViewProp
         <div className="waveform-container" ref={containerRef} />
       </div>
 
-      {!hasClarityData && (
-        <p className="clarity-meta">05 Clarity 샘플 로드를 눌러 Clarity JSON을 불러오세요.</p>
+      {!hasTemporalData && (
+        <p className="temporal-meta">06 Temporal 샘플 로드를 눌러 Temporal JSON을 불러오세요.</p>
       )}
-      {meta && hasClarityData && (
-        <p className="clarity-meta">
+      {meta && hasTemporalData && (
+        <p className="temporal-meta">
           <strong>입력 파일:</strong> {meta.source} · BPM {meta.bpm.toFixed(1)} · {events.length}개 이벤트
+          {meta.bpm_dynamic_used && " · 로컬 템포 사용"}
         </p>
       )}
 
-      <div className="clarity-tracks">
+      <div className="temporal-tracks">
         {TRACKS.map(({ key, label, color, getR }) =>
-          hasClarityData ? (
-            <div key={key} className="clarity-track">
-              <span className="clarity-track-label">{label}</span>
-              <div className="clarity-track-visual" style={{ width: overlayWidth, height: TRACK_HEIGHT }}>
+          hasTemporalData ? (
+            <div key={key} className="temporal-track">
+              <span className="temporal-track-label">{label}</span>
+              <div className="temporal-track-visual" style={{ width: overlayWidth, height: TRACK_HEIGHT }}>
                 <svg width={overlayWidth} height={TRACK_HEIGHT} style={{ display: "block" }}>
                   {events.map((e, i) => (
                     <circle
-                      key={`${key}-${e.t}-${i}`}
-                      cx={xScale(e.t)}
+                      key={`${key}-${e.time}-${i}`}
+                      cx={xScale(e.time)}
                       cy={TRACK_HEIGHT / 2}
                       r={getR(e)}
                       fill={color}
-                      opacity={getOpacity(e.t)}
+                      opacity={getOpacity(e.time)}
                     />
                   ))}
                   {duration > 0 && (

@@ -4,19 +4,22 @@ import { JsonUploader } from "./components/JsonUploader";
 import { WaveformWithOverlay } from "./components/WaveformWithOverlay";
 import { Tab04EnergyView } from "./components/Tab04EnergyView";
 import { Tab05ClarityView } from "./components/Tab05ClarityView";
+import { Tab06TemporalView } from "./components/Tab06TemporalView";
 import { LayerFilterPanel } from "./components/LayerFilterPanel";
 import type { EventPoint } from "./types/event";
 import type { EnergyJsonData } from "./types/energyEvent";
 import type { ClarityJsonData } from "./types/clarityEvent";
+import type { TemporalJsonData } from "./types/temporalEvent";
 import "./App.css";
 
-type TabId = "01" | "03" | "04" | "05";
+type TabId = "01" | "03" | "04" | "05" | "06";
 
 const TABS: { id: TabId; label: string; samplePath: string }[] = [
   { id: "01", label: "01 Explore", samplePath: "/onset_beats.json" },
   { id: "03", label: "03 Visualize", samplePath: "/onset_events.json" },
   { id: "04", label: "04 Energy", samplePath: "/onset_events_energy.json" },
   { id: "05", label: "05 Clarity", samplePath: "/onset_events_clarity.json" },
+  { id: "06", label: "06 Temporal", samplePath: "/onset_events_temporal.json" },
 ];
 
 function getUniqueLayers(events: EventPoint[]): string[] {
@@ -33,6 +36,7 @@ function App() {
   const [tabVisibleLayers, setTabVisibleLayers] = useState<TabLayers>({});
   const [tabEnergyData, setTabEnergyData] = useState<Partial<Record<TabId, EnergyJsonData | null>>>({});
   const [tabClarityData, setTabClarityData] = useState<Partial<Record<TabId, ClarityJsonData | null>>>({});
+  const [tabTemporalData, setTabTemporalData] = useState<Partial<Record<TabId, TemporalJsonData | null>>>({});
 
   const handleJsonLoaded = useCallback(
     (newEvents: EventPoint[]) => {
@@ -55,6 +59,13 @@ function App() {
   const handleClarityLoaded = useCallback(
     (data: ClarityJsonData | null) => {
       setTabClarityData((prev) => ({ ...prev, [activeTab]: data }));
+    },
+    [activeTab]
+  );
+
+  const handleTemporalLoaded = useCallback(
+    (data: TemporalJsonData | null) => {
+      setTabTemporalData((prev) => ({ ...prev, [activeTab]: data }));
     },
     [activeTab]
   );
@@ -102,6 +113,7 @@ function App() {
                   onJsonLoaded={handleJsonLoaded}
                   onEnergyLoaded={tab.id === "04" ? handleEnergyLoaded : undefined}
                   onClarityLoaded={tab.id === "05" ? handleClarityLoaded : undefined}
+                  onTemporalLoaded={tab.id === "06" ? handleTemporalLoaded : undefined}
                   samplePath={tab.samplePath}
                   sampleLabel={`${tab.label} 샘플 로드`}
                 />
@@ -117,6 +129,11 @@ function App() {
                   <Tab05ClarityView
                     audioUrl={audioUrl}
                     clarityData={tabClarityData["05"] ?? null}
+                  />
+                ) : tab.id === "06" ? (
+                  <Tab06TemporalView
+                    audioUrl={audioUrl}
+                    temporalData={tabTemporalData["06"] ?? null}
                   />
                 ) : (
                   <>

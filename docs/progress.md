@@ -4,6 +4,67 @@
 
 ---
 
+## 파이프라인 아키텍처
+
+```mermaid
+flowchart LR
+    subgraph input["입력"]
+        A[오디오 파일]
+    end
+
+    subgraph step1["Step 1 · 탐색"]
+        B[01_explore]
+        B --> B1[onset_detect<br/>beat_track]
+        B1 --> J1[onset_beats.json]
+    end
+
+    subgraph step2["Step 2 · 스템 분리"]
+        C[02_split_stem]
+        C --> C1[Demucs htdemucs]
+        C1 --> S[drums / bass / vocals / other]
+    end
+
+    subgraph step3["Step 3 · 시각화"]
+        D[03_visualize_point]
+        D --> D1[onset + strength<br/>spectral_centroid]
+        D1 --> J2[onset_events.json]
+    end
+
+    subgraph layered["레이어드 익스포트"]
+        E1[01_energy]
+        E2[02_clarity]
+        E3[03_temporal]
+        E1 --> E1a[RMS · 대역 에너지<br/>energy_score]
+        E2 --> E2a[Attack time<br/>clarity_score]
+        E3 --> E3a[가변 그리드 · 로컬 템포<br/>temporal_score]
+        E1a --> J3[onset_events_energy.json]
+        E2a --> J3
+        E3a --> J4[onset_events_temporal.json]
+    end
+
+    subgraph web["웹"]
+        W1[JsonUploader]
+        W2[parseEvents]
+        W3[WaveformWithOverlay]
+        W1 --> W2 --> W3
+    end
+
+    A --> B
+    A --> C
+    S -.->|선택| B
+    S -.->|선택| D
+    B --> D
+    D --> E1
+    D --> E2
+    D --> E3
+    J1 --> W1
+    J2 --> W1
+    J3 --> W1
+    J4 --> W1
+```
+
+---
+
 ## 1. 진행 현황
 
 ### 1.1 레이어링·JSON (02_layered_onset_export)
@@ -23,12 +84,23 @@
   5. Clarity: `robust_norm(clarity_raw)` 후 상·하위 1% clip
 - **임포트**: `scipy.ndimage`: `uniform_filter1d`, `median_filter`
 
+**03_temporal.py**
+
+- **가변 그리드 + 로컬 템포** 기반 Temporal Salience (layering.md 3) 구현.
+- 로컬 템포: `librosa.feature.tempo(aggregate=None)` → onset envelope 길이로 보간 → `beat_track(bpm=tempo_dynamic)`.
+- 가변 그리드: beat 구간 선형 분할 → 1/2, 1/4, 1/8, 1/16 서브비트. 계층별 가중치(1/4>1/8>1/16).
+- grid_align_score: 거리 `exp(-d/tau)` × 계층 가중치. tau = beat×0.06.
+- repetition_score: IOI를 beat 단위 정규화 후 0.125~2 beat 그리드 배수에 가까우면 높음. 50ms 미만 IOI 필터.
+- temporal_score = grid_align × repetition × strength_weight(0.85~1.0).
+- **저장**: `onset_events_temporal.json`. `web/public` 복사.
+
 **현재 상태**
 
 | 항목 | 메모 |
 |------|------|
 | 에너지 | 일관성 양호. |
 | Clarity | 추가 검증 필요. 드럼 트랙에서는 의미가 제한적일 수 있음. |
+| Temporal | 가변 그리드·로컬 템포·beat 정규화 IOI 적용 완료. 다음: Spectral Focus (4) 또는 Context Dependency (5). |
 
 ---
 
@@ -81,6 +153,19 @@
 | clarity_raw | — | `safe_attack = clip(attack_times, 0.1, None)`. `strengths * (1/safe_attack)` |
 | clarity_score | clarity_raw | percentile 1–99 정규화 → 0~1, 이후 상·하위 1% clip |
 | JSON | — | `attack_time_ms`, `clarity_score` 저장 |
+
+### 2.5 03_temporal.py (02_layered_onset_export)
+
+| 단계 | 값 | 가공 |
+|------|-----|------|
+| Onset | 01_energy와 동일 | `refine_onset_times`까지 동일 |
+| 로컬 템포 | `librosa.feature.tempo(aggregate=None, std_bpm=4)` | onset_env 길이로 보간 → `beat_track(bpm=...)` |
+| 비트 | beat_track | `beats_dynamic` (가변 템포 반영) |
+| 가변 그리드 | beats_dynamic | 1/2, 1/4, 1/8, 1/16 서브비트. 계층 level(1,2,4,8,16) 저장 |
+| grid_align_score | onset_times vs grid | `exp(-d/tau)` × level_weight. tau=beat×0.06 |
+| repetition_score | IOI (prev/next) | beat 정규화 → 0.125~2 beat 그리드 배수 근접도. 50ms 미만 필터 |
+| temporal_score | — | `grid_align × repetition × strength_weight(0.85~1.0)`. robust_norm |
+| JSON | — | `grid_align_score`, `repetition_score`, `temporal_score`, `ioi_prev/next` |
 
 ---
 
@@ -140,10 +225,11 @@ drums stem 확보 → 01_explore·03_visualize_point 드럼 입력으로 사용.
 
 ---
 
-### 3.4 01_energy.ipynb, 02_clarity.ipynb (02_layered_onset_export)
+### 3.4 01_energy.ipynb, 02_clarity.ipynb, 03_temporal.py (02_layered_onset_export)
 
 - **01_energy**: 구간별 RMS·대역 에너지 → energy_score, E_norm_* → JSON. §2.3 참고.
 - **02_clarity**: 구간별 Attack Time(10%→90%) → clarity_score → JSON. §2.4 참고.
+- **03_temporal**: 가변 그리드·로컬 템포 → grid_align_score, repetition_score → temporal_score → JSON. §2.5 참고.
 
 ---
 

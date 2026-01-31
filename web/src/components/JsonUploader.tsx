@@ -2,12 +2,14 @@ import { useState } from "react";
 import type { EventPoint } from "../types/event";
 import type { EnergyJsonData } from "../types/energyEvent";
 import type { ClarityJsonData } from "../types/clarityEvent";
-import { parseEventsFromJson, parseEnergyJson, parseClarityJson } from "../utils/parseEvents";
+import type { TemporalJsonData } from "../types/temporalEvent";
+import { parseEventsFromJson, parseEnergyJson, parseClarityJson, parseTemporalJson } from "../utils/parseEvents";
 
 interface JsonUploaderProps {
   onJsonLoaded: (events: EventPoint[]) => void;
   onEnergyLoaded?: (data: EnergyJsonData | null) => void;
   onClarityLoaded?: (data: ClarityJsonData | null) => void;
+  onTemporalLoaded?: (data: TemporalJsonData | null) => void;
   samplePath: string;
   sampleLabel: string;
 }
@@ -16,7 +18,8 @@ function processLoadedData(
   data: unknown,
   onJsonLoaded: (events: EventPoint[]) => void,
   onEnergyLoaded?: (data: EnergyJsonData | null) => void,
-  onClarityLoaded?: (data: ClarityJsonData | null) => void
+  onClarityLoaded?: (data: ClarityJsonData | null) => void,
+  onTemporalLoaded?: (data: TemporalJsonData | null) => void
 ) {
   const events = parseEventsFromJson(data);
   onJsonLoaded(events);
@@ -24,12 +27,15 @@ function processLoadedData(
   onEnergyLoaded?.(energy ?? null);
   const clarity = parseClarityJson(data);
   onClarityLoaded?.(clarity ?? null);
+  const temporal = parseTemporalJson(data);
+  onTemporalLoaded?.(temporal ?? null);
 }
 
 export function JsonUploader({
   onJsonLoaded,
   onEnergyLoaded,
   onClarityLoaded,
+  onTemporalLoaded,
   samplePath,
   sampleLabel,
 }: JsonUploaderProps) {
@@ -47,7 +53,7 @@ export function JsonUploader({
       try {
         const data = JSON.parse(reader.result as string);
         const events = parseEventsFromJson(data);
-        processLoadedData(data, onJsonLoaded, onEnergyLoaded, onClarityLoaded);
+        processLoadedData(data, onJsonLoaded, onEnergyLoaded, onClarityLoaded, onTemporalLoaded);
         setLoadedInfo({ source: file.name, eventCount: events.length });
       } catch (err) {
         console.error("JSON 파싱 실패:", err);
@@ -66,7 +72,7 @@ export function JsonUploader({
       })
       .then((data) => {
         const events = parseEventsFromJson(data);
-        processLoadedData(data, onJsonLoaded, onEnergyLoaded, onClarityLoaded);
+        processLoadedData(data, onJsonLoaded, onEnergyLoaded, onClarityLoaded, onTemporalLoaded);
         setLoadedInfo({ source: `샘플 (${samplePath.replace(/^\//, "")})`, eventCount: events.length });
       })
       .catch((err) => {
