@@ -396,6 +396,11 @@ drums stem 확보 → 01_explore·03_visualize_point 드럼 입력으로 사용.
 
 | 문서 | 내용 |
 |------|------|
-| docs/personal.md | 테스트/검증 로드맵(Step 0~7), 산출물, 우선순위 |
-| docs/json_spec.md | 파일별 JSON 형식 및 Web 수용 형식 |
-| docs/progress.md | 본 문서 — 진행 상황·값 가공·파일별 요약 |
+| docs/README.md | 기록 정보 정리·분류·목차 |
+| docs/onset_module.md | onset 모듈 구조·공개 API·검증 |
+| docs/pipeline.md | 데이터 흐름·스크립트 01~06 |
+| docs/json_spec.md | 파일별 JSON 스키마·Web 수용 형식 |
+| docs/layering.md | 레이어링 설계·점수 공식·apply_layer_floor |
+| docs/onset_stability.md | 같은 비트·다른 값 안정화 계획 |
+| docs/dev_onboarding.md | 환경·실행 순서·검증 한 번에 |
+| docs/progress.md | 본 문서 — 진행 상황·값 가공·점수 해석 |

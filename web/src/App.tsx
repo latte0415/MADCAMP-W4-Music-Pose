@@ -7,6 +7,7 @@ import { Tab05ClarityView } from "./components/Tab05ClarityView";
 import { Tab06TemporalView } from "./components/Tab06TemporalView";
 import { Tab07SpectralView } from "./components/Tab07SpectralView";
 import { Tab08ContextView } from "./components/Tab08ContextView";
+import { Tab09LayerView } from "./components/Tab09LayerView";
 import { LayerFilterPanel } from "./components/LayerFilterPanel";
 import type { EventPoint } from "./types/event";
 import type { EnergyJsonData } from "./types/energyEvent";
@@ -16,7 +17,7 @@ import type { SpectralJsonData } from "./types/spectralEvent";
 import type { ContextJsonData } from "./types/contextEvent";
 import "./App.css";
 
-type TabId = "01" | "03" | "04" | "05" | "06" | "07" | "08";
+type TabId = "01" | "03" | "04" | "05" | "06" | "07" | "08" | "09";
 
 const TABS: { id: TabId; label: string; samplePath: string }[] = [
   { id: "01", label: "01 Explore", samplePath: "/onset_beats.json" },
@@ -26,6 +27,7 @@ const TABS: { id: TabId; label: string; samplePath: string }[] = [
   { id: "06", label: "06 Temporal", samplePath: "/onset_events_temporal.json" },
   { id: "07", label: "07 Spectral", samplePath: "/onset_events_spectral.json" },
   { id: "08", label: "08 Context", samplePath: "/onset_events_context.json" },
+  { id: "09", label: "09 Layer (P0/P1/P2)", samplePath: "/onset_events_layered.json" },
 ];
 
 function getUniqueLayers(events: EventPoint[]): string[] {
@@ -168,6 +170,11 @@ function App() {
                   <Tab08ContextView
                     audioUrl={audioUrl}
                     contextData={tabContextData["08"] ?? null}
+                  />
+                ) : tab.id === "09" ? (
+                  <Tab09LayerView
+                    audioUrl={audioUrl}
+                    events={tabEvents["09"] ?? []}
                   />
                 ) : (
                   <>

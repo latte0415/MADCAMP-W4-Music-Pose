@@ -3,8 +3,15 @@ import WaveSurfer from "wavesurfer.js";
 import type { EventPoint } from "../types/event";
 
 const WAVEFORM_HEIGHT = 120;
-/** 강함/중간/약함 → y 위치 (0=top, 1=middle, 2=bottom) */
-const LAYER_TO_TIER: Record<string, number> = { 강함: 0, 중간: 1, 약함: 2 };
+/** 강함/중간/약함 또는 P0/P1/P2 → y 위치 (0=top, 1=middle, 2=bottom) */
+const LAYER_TO_TIER: Record<string, number> = {
+  강함: 0,
+  중간: 1,
+  약함: 2,
+  P0: 0,
+  P1: 1,
+  P2: 2,
+};
 const DEFAULT_MIN_PX_PER_SEC = 50;
 /** 재생 시점 기준 활성화 구간: t - BEFORE ~ t + AFTER (초) */
 const ACTIVATE_BEFORE_SEC = 0.03;

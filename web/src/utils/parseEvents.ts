@@ -249,14 +249,18 @@ export function parseEventsFromJson(data: unknown): EventPoint[] {
     return events;
   }
 
-  // 2, 3. 03_visualize_point / 04_layered_onset → onset_events.json 또는 events[] 래퍼
+  // 2, 3. 03_visualize_point / 04_layered_onset / 09_layered → onset_events.json 또는 events[] 래퍼
   if (Array.isArray(obj.events)) {
     const events = (obj.events as Record<string, unknown>[])
       .filter((item): item is Record<string, unknown> => item != null && typeof item === "object")
       .map((item) => normalizeEvent(item));
 
-    // 03/04 형식: strength 기준 강함/중간/약함 tertile 할당
-    if (events.length > 0) {
+    // 09 레이어 형식: 이미 layer가 P0/P1/P2이면 유지
+    const hasPrecisionLayers = events.some(
+      (e) => e.layer === "P0" || e.layer === "P1" || e.layer === "P2"
+    );
+    if (!hasPrecisionLayers && events.length > 0) {
+      // 03/04 형식: strength 기준 강함/중간/약함 tertile 할당
       const strengths = events.map((e) => e.strength);
       const sorted = [...strengths].sort((a, b) => a - b);
       const t33 = sorted[Math.floor(sorted.length * 0.33)] ?? 0;

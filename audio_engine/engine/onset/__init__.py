@@ -1,0 +1,78 @@
+"""
+Onset 기반 레이어링 엔진.
+L1+L2+L3+L4+L5 공개 API re-export (스크립트/CLI용).
+"""
+# L1
+from audio_engine.engine.onset.types import OnsetContext
+from audio_engine.engine.onset.constants import (
+    DEFAULT_HOP_LENGTH,
+    DEFAULT_HOP_REFINE,
+    DEFAULT_WIN_REFINE_SEC,
+    BAND_HZ,
+    BAND_NAMES,
+    DEFAULT_N_FFT,
+    DEFAULT_POINT_COLOR,
+)
+from audio_engine.engine.onset.utils import robust_norm
+
+# L2
+from audio_engine.engine.onset.pipeline import (
+    detect_onsets,
+    refine_onset_times,
+    build_context,
+)
+
+# L3
+from audio_engine.engine.onset.features.energy import compute_energy
+from audio_engine.engine.onset.features.clarity import compute_clarity
+from audio_engine.engine.onset.features.temporal import compute_temporal
+from audio_engine.engine.onset.features.spectral import compute_spectral
+from audio_engine.engine.onset.features.context import compute_context_dependency
+
+# L4
+from audio_engine.engine.onset.scoring import (
+    normalize_metrics_per_track,
+    compute_layer_scores,
+    assign_layer,
+    apply_layer_floor,
+)
+
+# L5
+from audio_engine.engine.onset.export import (
+    write_energy_json,
+    write_clarity_json,
+    write_temporal_json,
+    write_spectral_json,
+    write_context_json,
+    write_layered_json,
+)
+
+__all__ = [
+    "OnsetContext",
+    "DEFAULT_HOP_LENGTH",
+    "DEFAULT_HOP_REFINE",
+    "DEFAULT_WIN_REFINE_SEC",
+    "BAND_HZ",
+    "BAND_NAMES",
+    "DEFAULT_N_FFT",
+    "DEFAULT_POINT_COLOR",
+    "robust_norm",
+    "detect_onsets",
+    "refine_onset_times",
+    "build_context",
+    "compute_energy",
+    "compute_clarity",
+    "compute_temporal",
+    "compute_spectral",
+    "compute_context_dependency",
+    "normalize_metrics_per_track",
+    "compute_layer_scores",
+    "assign_layer",
+    "apply_layer_floor",
+    "write_energy_json",
+    "write_clarity_json",
+    "write_temporal_json",
+    "write_spectral_json",
+    "write_context_json",
+    "write_layered_json",
+]

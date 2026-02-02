@@ -151,6 +151,70 @@
   pointer-events: none;
 }
 
+/* Tab 09: 레이어별 분리 뷰 */
+.tab09-layer-view {
+  background: var(--bg-soft, #2a2a2a);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.tab09-waveform-section {
+  margin-bottom: 1rem;
+}
+
+.tab09-waveform-section .waveform-controls {
+  margin-bottom: 0.5rem;
+}
+
+.tab09-waveform-container {
+  width: 100%;
+  height: 100px;
+  display: block;
+}
+
+.tab09-layer-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.layer-timeline-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.layer-timeline-strip:last-child {
+  border-bottom: none;
+}
+
+.layer-timeline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.layer-timeline-label {
+  font-weight: 500;
+  color: #aaa;
+}
+
+.layer-timeline-svg-wrap {
+  width: 100%;
+  min-height: 44px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.layer-timeline-count {
+  font-size: 0.8rem;
+  color: #666;
+}
+
 .filter-section {
   margin-top: 0.75rem;
 }
