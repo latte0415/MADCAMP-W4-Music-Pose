@@ -9,6 +9,7 @@ from typing import Union
 
 import librosa
 import numpy as np
+from scipy.signal import butter, filtfilt
 
 from audio_engine.engine.onset.types import OnsetContext
 from audio_engine.engine.onset.constants import (
@@ -19,6 +20,8 @@ from audio_engine.engine.onset.constants import (
     DEFAULT_WIN_REFINE_SEC,
     SWING_RATIO,
     TEMPO_STD_BPM,
+    BAND_HZ,
+    BAND_EVIDENCE_TOL_SEC,
 )
 
 
@@ -167,6 +170,149 @@ def _build_variable_grid_with_levels(
     grid_times.append(beats[-1])
     grid_levels.append(1)
     return np.array(grid_times), np.array(grid_levels)
+
+
+def _bandpass(y: np.ndarray, sr: int, f_lo: float, f_hi: float, order: int = 2) -> np.ndarray:
+    nyq = sr / 2.0
+    low = max(f_lo / nyq, 0.001)
+    high = min(f_hi / nyq, 0.999)
+    if low >= high:
+        return np.zeros_like(y)
+    b, a = butter(order, [low, high], btype="band")
+    return filtfilt(b, a, y)
+
+
+def filter_y_into_bands(
+    y: np.ndarray,
+    sr: int,
+    band_hz: list[tuple[float, float]],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    band_hz: [(low_lo, low_hi), (mid_lo, mid_hi), (high_lo, high_hi)].
+    반환: (y_low, y_mid, y_high).
+    """
+    if len(band_hz) < 3:
+        return y.copy(), y.copy(), y.copy()
+    y_low = _bandpass(y, sr, band_hz[0][0], band_hz[0][1])
+    y_mid = _bandpass(y, sr, band_hz[1][0], band_hz[1][1])
+    y_high = _bandpass(y, sr, band_hz[2][0], band_hz[2][1])
+    return y_low, y_mid, y_high
+
+
+def _attach_band_evidence(
+    anchor_times: np.ndarray,
+    band_times_list: list[np.ndarray],
+    band_strengths_list: list[np.ndarray],
+    tol_sec: float,
+) -> list[dict]:
+    """
+    각 anchor에 대해 ±tol_sec 내 가장 가까운 band onset을 evidence로 attach.
+    반환: band_evidence[i] = {"low": {present, onset_strength, dt} or None, "mid": ..., "high": ...}
+    """
+    band_names = ["low", "mid", "high"]
+    n = len(anchor_times)
+    out = []
+    for i in range(n):
+        t_a = anchor_times[i]
+        ev = {}
+        for b, (times_b, strengths_b) in enumerate(zip(band_times_list, band_strengths_list)):
+            if len(times_b) == 0:
+                ev[band_names[b]] = None
+                continue
+            in_window = (times_b >= t_a - tol_sec) & (times_b <= t_a + tol_sec)
+            if not np.any(in_window):
+                ev[band_names[b]] = None
+                continue
+            idx = np.where(in_window)[0]
+            j = idx[np.argmin(np.abs(times_b[idx] - t_a))]
+            ev[band_names[b]] = {
+                "present": True,
+                "onset_strength": float(strengths_b[j]),
+                "dt": float(times_b[j] - t_a),
+            }
+        out.append(ev)
+    return out
+
+
+def build_context_with_band_evidence(
+    audio_path: Union[str, Path],
+    *,
+    hop_length: int = DEFAULT_HOP_LENGTH,
+    delta: float = DEFAULT_DELTA,
+    wait: int = DEFAULT_WAIT,
+    hop_refine: int = DEFAULT_HOP_REFINE,
+    win_refine_sec: float = DEFAULT_WIN_REFINE_SEC,
+    evidence_tol_sec: float = BAND_EVIDENCE_TOL_SEC,
+    include_temporal: bool = True,
+) -> OnsetContext:
+    """
+    Anchor(broadband onset) 1회 검출 후, 대역별 onset을 ±tol 내에서만 해당 anchor에 evidence로 연결.
+    merge로 이벤트를 생성하지 않음. 이벤트 수 = anchor 수.
+    """
+    path = Path(audio_path)
+    if not path.exists():
+        raise FileNotFoundError(f"파일을 찾을 수 없습니다: {audio_path}")
+    y, sr = librosa.load(path)
+    duration = len(y) / sr
+
+    # Anchor: 전대역 onset 1회
+    onset_frames, onset_times, onset_env, strengths = detect_onsets(
+        y, sr, hop_length=hop_length, delta=delta, wait=wait
+    )
+    onset_frames, onset_times = refine_onset_times(
+        y, sr, onset_frames, onset_times,
+        hop_length=hop_length, hop_refine=hop_refine, win_refine_sec=win_refine_sec,
+    )
+    strengths = onset_env[onset_frames]
+
+    # 대역별 onset (검출만, merge로 합치지 않음)
+    y_low, y_mid, y_high = filter_y_into_bands(y, sr, BAND_HZ)
+    band_times_list = []
+    band_strengths_list = []
+    for y_band in (y_low, y_mid, y_high):
+        frames_b, times_b, _, strengths_b = detect_onsets(
+            y_band, sr, hop_length=hop_length, delta=delta, wait=wait
+        )
+        band_times_list.append(times_b)
+        band_strengths_list.append(strengths_b)
+
+    band_evidence = _attach_band_evidence(
+        onset_times, band_times_list, band_strengths_list, tol_sec=evidence_tol_sec
+    )
+
+    tempo_global, _ = librosa.beat.beat_track(y=y, sr=sr, hop_length=hop_length)
+    bpm = float(np.asarray(tempo_global).flat[0]) if np.size(tempo_global) > 0 else 90.0
+
+    beats_dynamic = None
+    tempo_dynamic = None
+    grid_times = None
+    grid_levels = None
+    bpm_dynamic_used = False
+    if include_temporal:
+        (
+            beats_dynamic,
+            tempo_dynamic,
+            grid_times,
+            grid_levels,
+            bpm_dynamic_used,
+        ) = _build_temporal_aux(y, sr, onset_env, hop_length, bpm)
+
+    return OnsetContext(
+        y=y,
+        sr=sr,
+        duration=duration,
+        onset_times=onset_times,
+        onset_frames=onset_frames,
+        strengths=strengths,
+        bpm=bpm,
+        onset_env=onset_env,
+        beats_dynamic=beats_dynamic,
+        tempo_dynamic=tempo_dynamic,
+        grid_times=grid_times,
+        grid_levels=grid_levels,
+        bpm_dynamic_used=bpm_dynamic_used,
+        band_evidence=band_evidence,
+    )
 
 
 def build_context(

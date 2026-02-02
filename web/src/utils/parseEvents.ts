@@ -298,6 +298,29 @@ export function parseEventsFromJson(data: unknown): EventPoint[] {
   return [];
 }
 
+const LAYER_COLORS: Record<string, string> = {
+  P0: "#2ecc71",
+  P1: "#f39c12",
+  P2: "#3498db",
+};
+
+function parseRoles(item: Record<string, unknown>): EventPoint["roles"] | undefined {
+  const r = item.roles;
+  if (!r || typeof r !== "object" || Array.isArray(r)) return undefined;
+  const obj = r as Record<string, unknown>;
+  const P0 = Array.isArray(obj.P0) ? (obj.P0 as string[]) : [];
+  const P1 = Array.isArray(obj.P1) ? (obj.P1 as string[]) : [];
+  const P2 = Array.isArray(obj.P2) ? (obj.P2 as string[]) : [];
+  return { P0, P1, P2 };
+}
+
+function primaryFromRoles(roles: EventPoint["roles"]): string {
+  if (!roles) return "P0";
+  if (roles.P2.length > 0) return "P2";
+  if (roles.P1.length > 0) return "P1";
+  return "P0";
+}
+
 function normalizeEvent(item: Record<string, unknown>): EventPoint {
   const t = Number(item.t ?? item.time ?? 0);
   const strength = Math.min(1, Math.max(0, Number(item.strength ?? 0.7)));
@@ -305,8 +328,16 @@ function normalizeEvent(item: Record<string, unknown>): EventPoint {
   const texture = Number.isFinite(textureRaw)
     ? Math.min(1, Math.max(0, textureRaw))
     : undefined;
+  const roles = parseRoles(item);
+  const layer =
+    typeof item.layer === "string"
+      ? item.layer
+      : roles
+        ? primaryFromRoles(roles)
+        : "default";
   const color =
-    typeof item.color === "string" && item.color ? item.color : DEFAULT_POINT_COLOR;
-  const layer = typeof item.layer === "string" ? item.layer : "default";
-  return { t, strength, texture, color, layer };
+    typeof item.color === "string" && item.color
+      ? item.color
+      : LAYER_COLORS[layer] ?? DEFAULT_POINT_COLOR;
+  return { t, strength, texture, color, layer, roles };
 }

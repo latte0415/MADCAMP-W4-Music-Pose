@@ -11,14 +11,15 @@
 | L1 | `onset/types.py` | `OnsetContext` 등 타입 |
 | L1 | `onset/constants.py` | 상수(hop_length, BAND_HZ, CLARITY_ATTACK_* 등) |
 | L1 | `onset/utils.py` | `robust_norm` |
-| L2 | `onset/pipeline.py` | `detect_onsets`, `refine_onset_times`, `build_context` |
-| L3 | `onset/features/energy.py` | `compute_energy` |
+| L2 | `onset/pipeline.py` | `detect_onsets`, `refine_onset_times`, `build_context`, `build_context_with_band_evidence` (anchor + band evidence 연결) |
+| L2 | `onset/band_classification.py` | `compute_band_hz` (적응형+고정 혼합 저/중/고 경계) |
+| L3 | `onset/features/energy.py` | `compute_energy(ctx, band_hz=None)` |
 | L3 | `onset/features/clarity.py` | `compute_clarity` |
 | L3 | `onset/features/temporal.py` | `compute_temporal` |
 | L3 | `onset/features/spectral.py` | `compute_spectral` |
 | L3 | `onset/features/context.py` | `compute_context_dependency` |
-| L4 | `onset/scoring.py` | `normalize_metrics_per_track`, `compute_layer_scores`, `assign_layer`, `apply_layer_floor` |
-| L5 | `onset/export.py` | `write_energy_json`, `write_clarity_json`, `write_temporal_json`, `write_spectral_json`, `write_context_json`, `write_layered_json` |
+| L4 | `onset/scoring.py` | `normalize_metrics_per_track`, `assign_roles_by_band` (band 기반 역할 할당) |
+| L5 | `onset/export.py` | `write_energy_json`, `write_clarity_json`, `write_temporal_json`, `write_spectral_json`, `write_context_json`, `write_layered_json(ctx, metrics, role_composition, path, ...)` |
 | L6 | `audio_engine/scripts/02_layered_onset_export/01_energy.py` ~ `06_layered_export.py` | 엔트리 스크립트 |
 
 ---
@@ -43,6 +44,8 @@ from audio_engine.engine.onset import (
     detect_onsets,
     refine_onset_times,
     build_context,
+    build_context_with_band_evidence,
+    compute_band_hz,
     # L3
     compute_energy,
     compute_clarity,
@@ -51,9 +54,7 @@ from audio_engine.engine.onset import (
     compute_context_dependency,
     # L4
     normalize_metrics_per_track,
-    compute_layer_scores,
-    assign_layer,
-    apply_layer_floor,
+    assign_roles_by_band,
     # L5
     write_energy_json,
     write_clarity_json,
@@ -111,9 +112,9 @@ from audio_engine.engine.onset import (
 cd /path/to/music-anaylzer
 python -c "
 from audio_engine.engine.onset import (
-    OnsetContext, build_context, detect_onsets, refine_onset_times,
-    compute_energy, compute_clarity, compute_temporal, compute_spectral, compute_context_dependency,
-    normalize_metrics_per_track, compute_layer_scores, assign_layer, apply_layer_floor,
+    OnsetContext, build_context, build_context_with_band_evidence, detect_onsets, refine_onset_times,
+    compute_band_hz, compute_energy, compute_clarity, compute_temporal, compute_spectral, compute_context_dependency,
+    normalize_metrics_per_track, assign_roles_by_band,
     write_energy_json, write_clarity_json, write_temporal_json, write_spectral_json, write_context_json, write_layered_json,
     robust_norm,
 )

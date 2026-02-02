@@ -22,39 +22,38 @@ project_root = find_project_root()
 sys.path.insert(0, project_root)
 
 from audio_engine.engine.onset import (
-    build_context,
+    build_context_with_band_evidence,
     compute_energy,
     compute_clarity,
     compute_temporal,
     compute_spectral,
     compute_context_dependency,
-    compute_layer_scores,
-    assign_layer,
-    apply_layer_floor,
+    assign_roles_by_band,
     write_layered_json,
 )
 
 # %%
 # 기본 입력: 샘플 오디오 (필요 시 경로 변경)
-audio_path = os.path.join(
-    project_root,
-    "audio_engine",
-    "samples",
-    "stems",
-    "htdemucs",
-    "sample_ropes_short",
-    "drums.wav",
-)
-# audio_path = os.path.join(project_root, "audio_engine", "samples", "sample_ropes_short.mp3")
+# audio_path = os.path.join(
+#     project_root,
+#     "audio_engine",
+#     "samples",
+#     "stems",
+#     "htdemucs",
+#     "sample_ropes_short",
+#     "drums.wav",
+# )
+audio_path = os.path.join(project_root, "audio_engine", "samples", "sample_animal_spirits.mp3")
 
-ctx = build_context(audio_path, include_temporal=True)
+ctx = build_context_with_band_evidence(audio_path, include_temporal=True)
 print(f"파일: {os.path.basename(audio_path)}")
 print(f"샘플링 레이트: {ctx.sr} Hz, 길이: {ctx.duration:.2f} 초")
-print(f"검출된 타격점 수: {ctx.n_events}")
+print(f"검출된 타격점 수(anchor): {ctx.n_events}")
 print(f"BPM: {ctx.bpm:.1f}")
 
 # %%
-e_s, _ = compute_energy(ctx)
+# 고정 BAND_HZ(20-200, 200-3k, 3k-10k) 사용
+e_s, energy_extras = compute_energy(ctx)
 c_s, _ = compute_clarity(ctx)
 t_s, _ = compute_temporal(ctx)
 f_s, _ = compute_spectral(ctx)
@@ -67,17 +66,23 @@ metrics = {
     "focus": f_s,
     "dependency": d_s,
 }
-S0, S1, S2 = compute_layer_scores(metrics)
-layer_indices = assign_layer(S0, S1, S2)
-# P0 >= 20%, P0+P1 >= 40% 보정
-layer_indices = apply_layer_floor(
-    layer_indices, S0, S1, S2,
-    min_p0_ratio=0.20,
-    min_p0_p1_ratio=0.40,
+role_composition = assign_roles_by_band(
+    energy_extras,
+    temporal=metrics["temporal"],
+    dependency=metrics["dependency"],
+    focus=metrics["focus"],
+    onset_times=ctx.onset_times,
+    band_evidence=ctx.band_evidence,
 )
-for i, name in enumerate(["P0", "P1", "P2"]):
-    n = (layer_indices == i).sum()
-    print(f"  {name}: {n}개")
+# 이벤트 기준 (JSON layer_counts와 동일: P0=전체 이벤트 수, P1/P2=역할이 하나라도 있는 이벤트 수)
+n_p0_events = ctx.n_events
+n_p1_events = sum(1 for ev in role_composition if ev.get("P1"))
+n_p2_events = sum(1 for ev in role_composition if ev.get("P2"))
+print(f"  이벤트 기준 — P0: {n_p0_events}, P1: {n_p1_events}, P2: {n_p2_events}")
+# band 기준 (슬롯 수: 이벤트당 P1/P2 band 개수 합)
+n_p1_slots = sum(len(ev.get("P1") or []) for ev in role_composition)
+n_p2_slots = sum(len(ev.get("P2") or []) for ev in role_composition)
+print(f"  band 슬롯 — P1: {n_p1_slots}, P2: {n_p2_slots}")
 
 # %%
 samples_dir = os.path.join(project_root, "audio_engine", "samples")
@@ -85,7 +90,7 @@ json_path = os.path.join(samples_dir, "onset_events_layered.json")
 write_layered_json(
     ctx,
     metrics,
-    layer_indices,
+    role_composition,
     json_path,
     source=os.path.basename(audio_path),
     project_root=project_root,

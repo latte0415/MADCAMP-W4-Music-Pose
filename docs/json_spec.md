@@ -77,7 +77,9 @@
 ## 9. 06_layered_export.py → onset_events_layered.json
 
 **출력 경로**: `audio_engine/samples/onset_events_layered.json`  
-**생성**: `write_layered_json()` (L5 export). 스크립트 `06_layered_export.py`.
+**생성**: `write_layered_json(ctx, metrics, role_composition, path, ...)` (L5 export). 스크립트 `06_layered_export.py`.
+
+**의미적 레이어 판단**: **layer/color는 시각화용이며, 의미적 판단은 roles를 기준으로 한다.**
 
 **스키마 (최상위)**:
 
@@ -87,16 +89,17 @@
 | `sr` | number | 샘플링 레이트 (Hz) |
 | `duration_sec` | number | 오디오 길이 (초) |
 | `total_events` | number | 총 이벤트 수 |
-| `layer_counts` | object | `{"P0": n, "P1": n, "P2": n}` |
+| `layer_counts` | object | **이벤트 기준** `{"P0": 전체 이벤트 수, "P1": P1이 하나라도 있는 이벤트 수, "P2": P2가 하나라도 있는 이벤트 수}` |
 | `events` | object[] | 이벤트 배열 |
 
-**events[] 항목** (실제 `export.write_layered_json` 출력 기준):
+**events[] 항목**:
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | `time` | number | 시간(초) |
 | `t` | number | time과 동일 |
-| `layer` | string | `"P0"` \| `"P1"` \| `"P2"` |
+| `roles` | object | `{ "P0": band[], "P1": band[], "P2": band[] }` — 역할별 대역 목록. P0/P1 중복 허용(같은 band가 여러 역할 가능). 의미적 판단은 roles 기준. |
+| `layer` | string | 시각화용 주 역할 하나(P2 > P1 > P0). roles에서 유도. |
 | `strength` | number | onset strength |
 | `color` | string | hex (P0=#2ecc71, P1=#f39c12, P2=#3498db) |
 | `energy_score` | number | 0~1 |

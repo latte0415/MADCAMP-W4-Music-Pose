@@ -18,12 +18,13 @@ def _hz_to_bin(f_hz: float, sr: int, n_fft: int) -> int:
     return int(f_hz * n_fft / sr)
 
 
-def compute_energy(ctx: OnsetContext) -> tuple[np.ndarray, dict]:
+def compute_energy(
+    ctx: OnsetContext,
+    band_hz: list[tuple[float, float]] | None = None,
+) -> tuple[np.ndarray, dict]:
     """
     OnsetContext → (scores, extras).
-    scores: energy_score 0~1 (주 스코어).
-    extras: rms_per_event, log_rms, E_norm_low, E_norm_mid, E_norm_high,
-            left_sec_arr, right_sec_arr, overlap_prev, band_energy (raw).
+    band_hz: 저/중/고 3구간 (f_lo, f_hi) 리스트. None이면 constants.BAND_HZ 사용.
     """
     y = ctx.y
     sr = ctx.sr
@@ -31,6 +32,7 @@ def compute_energy(ctx: OnsetContext) -> tuple[np.ndarray, dict]:
     onset_times = ctx.onset_times
     n_events = ctx.n_events
     n_fft = DEFAULT_N_FFT
+    bands = band_hz if band_hz is not None and len(band_hz) == 3 else BAND_HZ
 
     rms_per_event = []
     left_sec_arr = []
@@ -70,7 +72,7 @@ def compute_energy(ctx: OnsetContext) -> tuple[np.ndarray, dict]:
             )
         S = np.abs(np.fft.rfft(seg[:n_fft])) ** 2
         n_bins = len(S)
-        for (f_lo, f_hi), name in zip(BAND_HZ, BAND_NAMES):
+        for (f_lo, f_hi), name in zip(bands, BAND_NAMES):
             b_lo = min(_hz_to_bin(f_lo, sr, n_fft), n_bins - 1)
             b_hi = min(_hz_to_bin(f_hi, sr, n_fft), n_bins)
             band_energy[name].append(np.sum(S[b_lo:b_hi]))

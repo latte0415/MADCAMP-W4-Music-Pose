@@ -16,6 +16,22 @@ const LAYER_LABELS: Record<string, string> = {
   P1: "P1 (중정밀)",
   P2: "P2 (고정밀)",
 };
+const LAYER_COLORS: Record<string, string> = {
+  P0: "#2ecc71",
+  P1: "#f39c12",
+  P2: "#3498db",
+};
+
+/** roles가 있으면 해당 역할이 있는 모든 행에 이벤트 표시(중복 허용); 없으면 layer 한 행만 */
+function eventsForLayer(events: EventPoint[], layer: string): EventPoint[] {
+  return events.filter((e) => {
+    if (e.roles) {
+      const bands = e.roles[layer as keyof typeof e.roles];
+      return Array.isArray(bands) && bands.length > 0;
+    }
+    return e.layer === layer;
+  });
+}
 
 interface Tab09LayerViewProps {
   audioUrl: string | null;
@@ -100,7 +116,7 @@ export function Tab09LayerView({ audioUrl, events }: Tab09LayerViewProps) {
 
   const eventsByLayer = LAYER_ORDER.map((layer) => ({
     layer,
-    events: events.filter((e) => e.layer === layer),
+    events: eventsForLayer(events, layer),
   }));
 
   if (!audioUrl) {
@@ -141,6 +157,7 @@ export function Tab09LayerView({ audioUrl, events }: Tab09LayerViewProps) {
             currentTime={currentTime}
             visibleRange={visibleRange}
             height={STRIP_HEIGHT}
+            stripColor={LAYER_COLORS[layer]}
           />
         ))}
       </div>

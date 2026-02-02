@@ -20,6 +20,7 @@ build/
 *.swp
 *.swo
 *~
+.cursor/
 
 # Audio samples (큰 파일)
 audio_engine/samples/*.mp3

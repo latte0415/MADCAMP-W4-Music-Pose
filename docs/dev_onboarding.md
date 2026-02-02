@@ -48,8 +48,9 @@
 cd /path/to/music-anaylzer
 python -c "
 from audio_engine.engine.onset import (
-    build_context, compute_energy, compute_clarity, compute_temporal, compute_spectral, compute_context_dependency,
-    compute_layer_scores, assign_layer, apply_layer_floor, write_layered_json,
+    build_context, build_context_with_band_evidence,
+    compute_energy, compute_clarity, compute_temporal, compute_spectral, compute_context_dependency,
+    assign_roles_by_band, write_layered_json,
 )
 print('OK: 공개 API import 성공')
 "
@@ -71,6 +72,6 @@ python audio_engine/scripts/02_layered_onset_export/06_layered_export.py
 | [onset_module.md](onset_module.md) | 모듈 구조·API·검증 |
 | [pipeline.md](pipeline.md) | 데이터 흐름·스크립트 01~06 |
 | [json_spec.md](json_spec.md) | JSON 스키마 |
-| [layering.md](layering.md) | 레이어링·점수 공식 |
+| [layering.md](layering.md) | band 기반 역할·레이어링 설계 |
 | [onset_stability.md](onset_stability.md) | 안정화 계획 |
 | [progress.md](progress.md) | 진행·값 가공·점수 해석 |

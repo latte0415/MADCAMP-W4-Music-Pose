@@ -10,6 +10,8 @@ interface LayerTimelineStripProps {
   currentTime: number;
   visibleRange: [number, number];
   height: number;
+  /** 행 전체 색상(roles 기반 중복 표시 시 해당 행 색으로 통일) */
+  stripColor?: string;
 }
 
 export function LayerTimelineStrip({
@@ -18,6 +20,7 @@ export function LayerTimelineStrip({
   currentTime,
   visibleRange,
   height,
+  stripColor,
 }: LayerTimelineStripProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -66,7 +69,7 @@ export function LayerTimelineStrip({
               cx={xScale(event.t)}
               cy={cy}
               r={r}
-              fill={event.color}
+              fill={stripColor ?? event.color}
               opacity={getPointOpacity(event.t)}
             />
           ))}

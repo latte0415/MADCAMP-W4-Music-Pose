@@ -20,7 +20,9 @@ from audio_engine.engine.onset.pipeline import (
     detect_onsets,
     refine_onset_times,
     build_context,
+    build_context_with_band_evidence,
 )
+from audio_engine.engine.onset.band_classification import compute_band_hz
 
 # L3
 from audio_engine.engine.onset.features.energy import compute_energy
@@ -32,9 +34,7 @@ from audio_engine.engine.onset.features.context import compute_context_dependenc
 # L4
 from audio_engine.engine.onset.scoring import (
     normalize_metrics_per_track,
-    compute_layer_scores,
-    assign_layer,
-    apply_layer_floor,
+    assign_roles_by_band,
 )
 
 # L5
@@ -60,15 +60,15 @@ __all__ = [
     "detect_onsets",
     "refine_onset_times",
     "build_context",
+    "build_context_with_band_evidence",
+    "compute_band_hz",
     "compute_energy",
     "compute_clarity",
     "compute_temporal",
     "compute_spectral",
     "compute_context_dependency",
     "normalize_metrics_per_track",
-    "compute_layer_scores",
-    "assign_layer",
-    "apply_layer_floor",
+    "assign_roles_by_band",
     "write_energy_json",
     "write_clarity_json",
     "write_temporal_json",

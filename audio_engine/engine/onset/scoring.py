@@ -1,29 +1,51 @@
 """
-L4 Aggregation: 레이어 스코어·할당 (지표 딕셔너리 → P0/P1/P2).
-L1, L3 결과(딕셔너리)만 사용.
-트랙별 1차 정규화(adaptive)로 곡마다 분포에 맞춰 상대적 비교 가능.
+L4 Aggregation: band 기반 역할 할당 (이벤트×대역 → P0/P1/P2).
+P0 = 반복 집합 내 상대 에너지(accent, top quantile). P1 = 반복 집합 소속(패턴 유지). P2 = 뉘앙스.
 """
 from __future__ import annotations
 
 import numpy as np
 
-# P0 (저정밀/메인 타격): E↑ T↑ C↑ - D + F
-W_E_P0 = 0.20
-W_T_P0 = 0.40
-W_C_P0 = 0.40
-W_D_P0 = 0.10
-W_F_P0 = 0.08
+BAND_NAMES = ("low", "mid", "high")
 
-# P1 (중정밀): T↑ + mid(E) + C
-W_T_P1 = 0.25
-W_E_P1 = 0.25
-W_C_P1 = 0.30
 
-# P2 (고정밀): D↑ + (1-F) + (1-C) + (1-E)
-W_D_P2 = 0.35
-W_F_P2 = 0.25
-W_C_P2 = 0.20
-W_E_P2 = 0.20
+def _repetition_groups_from_ioi(
+    onset_times: np.ndarray,
+    rel_tol: float = 0.2,
+) -> np.ndarray:
+    """
+    반복 집합(Repetition Group) 최소 규칙: IOI가 거의 같은 연속 이벤트 → 같은 집합.
+    규칙: |ioi[i] - ioi[i-1]| <= rel_tol * median_ioi 이면 같은 집합, 아니면 새 집합.
+    첫 이벤트(0): ioi[0] 없음 → ioi[1]이 이웃(1-2)과 유사하면 0을 1과 같은 그룹에 넣어 P1 후보 가능.
+    docs/layering.md §0.2 참고.
+    반환: group_id[i] = 이벤트 i가 속한 집합 인덱스 (0, 1, 2, ...).
+    """
+    n = len(onset_times)
+    if n < 2:
+        return np.zeros(n, dtype=np.intp)
+    ioi = np.zeros(n)
+    ioi[0] = np.nan
+    ioi[1:] = onset_times[1:] - onset_times[:-1]
+    valid = np.isfinite(ioi)
+    median_ioi = np.nanmedian(ioi[1:]) if np.any(valid) else 0.5
+    if median_ioi <= 0:
+        median_ioi = 0.5
+    tol = rel_tol * median_ioi
+    group_id = np.zeros(n, dtype=np.intp)
+    g = 0
+    for i in range(1, n):
+        if np.isfinite(ioi[i]) and np.isfinite(ioi[i - 1]) and abs(ioi[i] - ioi[i - 1]) <= tol:
+            group_id[i] = g
+        else:
+            g += 1
+            group_id[i] = g
+    # 첫 이벤트(0): ioi[0] 없어서 원래 혼자 그룹 0 → P1 불가. 다음과 동일 반복이면 0을 1과 같은 그룹에 넣음.
+    if n >= 2 and np.isfinite(ioi[1]):
+        if n >= 3 and np.isfinite(ioi[2]) and abs(ioi[1] - ioi[2]) <= tol:
+            group_id[0] = group_id[1]
+        elif n == 2:
+            group_id[0] = group_id[1]
+    return group_id
 
 
 def normalize_metrics_per_track(
@@ -34,8 +56,6 @@ def normalize_metrics_per_track(
 ) -> dict[str, np.ndarray]:
     """
     1차 분석: 트랙 내 지표 분포로 각 메트릭을 0~1로 재정규화.
-    곡마다 절대값 스케일이 달라도, 같은 가중치로 "상대적으로 뚜렷한 타격 → P0"이 되도록 함.
-    use_percentile=True면 low~high 백분위로 클리핑 후 min-max. False면 전체 min-max.
     """
     out = {}
     for key, arr in metrics.items():
@@ -60,108 +80,190 @@ def normalize_metrics_per_track(
     return out
 
 
-def _mid_energy(E: np.ndarray) -> np.ndarray:
-    """E가 중간(0.3~0.7)일 때 높은 값. 1 - 4*(E-0.5)^2 (0~1 클리핑)."""
-    x = 1.0 - 4.0 * (E - 0.5) ** 2
-    return np.clip(x, 0, 1)
+def _ioi_similarity(ioi_i: float, ioi_prev: float, sigma_sec: float = 0.05) -> float:
+    """IOI 유사도: exp(-|ioi_i - ioi_prev| / sigma)."""
+    if not np.isfinite(ioi_i) or not np.isfinite(ioi_prev) or sigma_sec <= 0:
+        return 0.0
+    return float(np.exp(-min(abs(ioi_i - ioi_prev) / sigma_sec, 10.0)))
 
 
-def compute_layer_scores(
-    metrics: dict[str, np.ndarray],
+def assign_roles_by_band(
+    energy_extras: dict[str, np.ndarray],
     *,
-    adaptive: bool = True,
-    use_percentile: bool = True,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    temporal: np.ndarray | None = None,
+    dependency: np.ndarray | None = None,
+    focus: np.ndarray | None = None,
+    onset_times: np.ndarray | None = None,
+    band_evidence: list[dict] | None = None,
+    use_repetition_group: bool = True,
+    p0_quantile: float = 0.80,
+    ioi_rel_tol: float = 0.20,
+    eps_broadband: float = 0.08,
+    tau_repeat: float = 0.35,
+    dep_th: float = 0.5,
+    p2_abs_floor: float = 0.10,
+    p2_ratio_to_p0: float = 0.6,
+    ioi_sigma_sec: float = 0.05,
+) -> list[dict]:
     """
-    metrics: {"energy": E, "clarity": C, "temporal": T, "focus": F, "dependency": D}
-    각 0~1 배열, 길이 동일.
-    adaptive=True면 먼저 트랙 내 분포로 지표를 0~1 재정규화한 뒤 가중치 적용 (곡별 상대 비교).
-    반환: (S0, S1, S2) 각 P0/P1/P2 스코어 배열.
+    이벤트×대역 역할 할당. P0/P1 독립(중복 허용).
+    onset_times + use_repetition_group=True 시:
+      P1 = 반복 집합 소속 → 해당 이벤트의 band evidence 전부 P1.
+      P0 = 반복 집합 내 band별 상위 quantile(accent) → 해당 band P0.
+    그 외: P0=argmax, P1=repeat_score 기반(레거시).
     """
-    if adaptive:
-        metrics = normalize_metrics_per_track(metrics, use_percentile=use_percentile)
-    E = metrics["energy"]
-    C = metrics["clarity"]
-    T = metrics["temporal"]
-    F = metrics["focus"]
-    D = metrics["dependency"]
+    E_low = np.asarray(energy_extras["E_norm_low"])
+    E_mid = np.asarray(energy_extras["E_norm_mid"])
+    E_high = np.asarray(energy_extras["E_norm_high"])
+    n = len(E_low)
+    stacked = np.stack([E_low, E_mid, E_high], axis=1)
 
-    S0 = (
-        W_E_P0 * E
-        + W_T_P0 * T
-        + W_C_P0 * C
-        - W_D_P0 * D
-        + W_F_P0 * F
-    )
-    S1 = W_T_P1 * T + W_E_P1 * _mid_energy(E) + W_C_P1 * C
-    S2 = (
-        W_D_P2 * D
-        + W_F_P2 * (1.0 - F)
-        + W_C_P2 * (1.0 - C)
-        + W_E_P2 * (1.0 - E)
-    )
-    S0 = np.clip(S0, 0, 1)
-    S1 = np.clip(S1, 0, 1)
-    S2 = np.clip(S2, 0, 1)
-    return S0, S1, S2
+    # 반복 집합 기반 모드: P0 = group-relative quantile, P1 = group membership
+    if use_repetition_group and onset_times is not None and n >= 2:
+        group_id = _repetition_groups_from_ioi(np.asarray(onset_times), rel_tol=ioi_rel_tol)
+        group_ids = np.unique(group_id)
+        p0_bands_list = []
+        p1_bands_list = []
+        p0_primary = []
+        p0_energy_for_p2 = np.array([float(stacked[i, np.argmax(stacked[i])]) for i in range(n)])
+        for i in range(n):
+            g = group_id[i]
+            in_g = group_id == g
+            group_size = np.sum(in_g)
+            p1_list = []
+            if band_evidence is not None and i < len(band_evidence):
+                for b in BAND_NAMES:
+                    ev = band_evidence[i].get(b)
+                    if ev and ev.get("present") and group_size >= 2:
+                        p1_list.append(b)
+            elif group_size >= 2:
+                p1_list = list(BAND_NAMES)
+            p1_bands_list.append(p1_list)
 
+            p0_list = []
+            for b_idx in range(3):
+                E_b = stacked[in_g, b_idx]
+                if E_b.size < 2:
+                    if E_b.size == 1 and E_b[0] >= 0:
+                        p0_list.append(BAND_NAMES[b_idx])
+                    continue
+                th = np.nanpercentile(E_b, p0_quantile * 100)
+                if np.isfinite(th) and stacked[i, b_idx] >= th:
+                    p0_list.append(BAND_NAMES[b_idx])
+            p0_bands_list.append(p0_list)
+            if p0_list:
+                best_b = max(p0_list, key=lambda b: stacked[i, BAND_NAMES.index(b)])
+                p0_primary.append(best_b)
+            else:
+                p0_primary.append(BAND_NAMES[np.argmax(stacked[i])])
+        p0_bands = p0_primary
+        p0_energy = p0_energy_for_p2
+        is_broadband = (np.max(stacked, axis=1) - np.sort(stacked, axis=1)[:, -2]) < eps_broadband
+        p2_gate = np.asarray(dependency) >= dep_th if dependency is not None else np.zeros(n, dtype=bool)
 
-def assign_layer(
-    S0: np.ndarray,
-    S1: np.ndarray,
-    S2: np.ndarray,
-) -> np.ndarray:
-    """
-    layer_indices: 0=P0, 1=P1, 2=P2. argmax(S0, S1, S2) per event.
-    """
-    stacked = np.stack([S0, S1, S2], axis=1)
-    return np.argmax(stacked, axis=1)
+        def p2_candidates(i: int) -> list[str]:
+            if is_broadband[i] or not p2_gate[i]:
+                return []
+            th_hi = p0_energy[i] * p2_ratio_to_p0
+            out_list = []
+            for bi, b in enumerate(BAND_NAMES):
+                if b in (p0_bands_list[i] or [p0_primary[i]]):
+                    continue
+                e_b = stacked[i, bi]
+                if p2_abs_floor < e_b < th_hi:
+                    out_list.append(b)
+            return out_list
 
+        out = []
+        for i in range(n):
+            p2 = p2_candidates(i)
+            out.append({"P0": p0_bands_list[i] or [p0_primary[i]], "P0_primary": p0_primary[i], "P1": p1_bands_list[i], "P2": p2})
+        return out
 
-def apply_layer_floor(
-    layer_indices: np.ndarray,
-    S0: np.ndarray,
-    S1: np.ndarray,
-    S2: np.ndarray,
-    *,
-    min_p0_ratio: float = 0.20,
-    min_p0_p1_ratio: float = 0.40,
-) -> np.ndarray:
-    """
-    레이어 비율 하한 보정: P0 >= min_p0_ratio, P0+P1 >= min_p0_p1_ratio.
-    부족하면 S0/S1 순으로 P2→P1→P0으로 승격.
-    """
-    layers = np.asarray(layer_indices).copy()
-    n = len(layers)
-    if n == 0:
-        return layers
+    # 레거시: P0 = argmax, P1 = repeat_score
+    p0_idx = np.argmax(stacked, axis=1)
+    p0_bands = [BAND_NAMES[i] for i in p0_idx]
+    p0_energy = np.array([stacked[i, p0_idx[i]] for i in range(n)])
+    sorted_stack = np.sort(stacked, axis=1)
+    second_max = sorted_stack[:, -2]
+    max_vals = sorted_stack[:, -1]
+    is_broadband = (max_vals - second_max) < eps_broadband
+    p2_gate = np.zeros(n, dtype=bool)
+    if dependency is not None:
+        p2_gate = np.asarray(dependency) >= dep_th
 
-    target_p0 = max(1, int(np.ceil(n * min_p0_ratio)))
-    target_p0_p1 = max(1, int(np.ceil(n * min_p0_p1_ratio)))
+    def p2_candidates_legacy(i: int) -> list[str]:
+        if is_broadband[i] or not p2_gate[i]:
+            return []
+        p0_b = p0_bands[i]
+        th_hi = p0_energy[i] * p2_ratio_to_p0
+        out_list = []
+        for bi, b in enumerate(BAND_NAMES):
+            if b == p0_b:
+                continue
+            e_b = stacked[i, bi]
+            if p2_abs_floor < e_b < th_hi:
+                out_list.append(b)
+        return out_list
 
-    n_p0 = np.sum(layers == 0)
-    n_p1 = np.sum(layers == 1)
-    n_p2 = np.sum(layers == 2)
+    p1_bands_list = [[] for _ in range(n)]
+    if temporal is not None and n >= 2:
+        T = np.asarray(temporal)
+        if band_evidence is not None and onset_times is not None and len(band_evidence) >= n:
+            times = np.asarray(onset_times)
+            ioi = np.zeros(n)
+            ioi[0] = np.nan
+            ioi[1:] = times[1:] - times[:-1]
+            last_seen = {b: -1 for b in BAND_NAMES}
+            all_strengths = []
+            for i in range(n):
+                for b in BAND_NAMES:
+                    ev = band_evidence[i].get(b)
+                    if ev and ev.get("present"):
+                        all_strengths.append(ev.get("onset_strength", 0))
+            str_max = max(all_strengths, default=1.0)
+            str_min = min(all_strengths, default=0.0)
+            if str_max <= str_min:
+                str_max = str_min + 1.0
+            for i in range(n):
+                p1_list = []
+                for b in BAND_NAMES:
+                    ev_i = band_evidence[i].get(b)
+                    if not ev_i or not ev_i.get("present"):
+                        continue
+                    prev = last_seen[b]
+                    if prev < 0:
+                        s = T[i] * 0.5
+                    else:
+                        ev_prev = band_evidence[prev].get(b)
+                        if not ev_prev or not ev_prev.get("present"):
+                            s = T[i] * 0.5
+                        else:
+                            str_i = (ev_i.get("onset_strength", 0) - str_min) / (str_max - str_min)
+                            str_p = (ev_prev.get("onset_strength", 0) - str_min) / (str_max - str_min)
+                            sim_strength = 1.0 - min(1.0, abs(str_i - str_p))
+                            sim_ioi = _ioi_similarity(ioi[i], ioi[prev], ioi_sigma_sec)
+                            s = T[i] * sim_strength * sim_ioi
+                    if s > tau_repeat:
+                        p1_list.append(b)
+                    if ev_i.get("present"):
+                        last_seen[b] = i
+                p1_bands_list[i] = p1_list
+        else:
+            for i in range(n):
+                p1_list = []
+                for b_idx, b in enumerate(BAND_NAMES):
+                    E_b = stacked[:, b_idx]
+                    if i == 0:
+                        s = 0.0
+                    else:
+                        s = T[i] * (1.0 - min(1.0, abs(E_b[i] - E_b[i - 1])))
+                    if s > tau_repeat:
+                        p1_list.append(b)
+                p1_bands_list[i] = p1_list
 
-    # 1) P0 부족: P1·P2 중 S0가 높은 순으로 P0으로 승격
-    if n_p0 < target_p0:
-        need = target_p0 - n_p0
-        non_p0 = np.where(layers != 0)[0]
-        # S0 기준 내림차순 → 상위 need개 인덱스
-        order = non_p0[np.argsort(-S0[non_p0])]
-        promote_to_p0 = order[:need]
-        layers[promote_to_p0] = 0
-        n_p0 = np.sum(layers == 0)
-        n_p1 = np.sum(layers == 1)
-        n_p2 = np.sum(layers == 2)
-
-    # 2) P0+P1 부족: P2 중 S1이 높은 순으로 P1으로 승격
-    if (n_p0 + n_p1) < target_p0_p1:
-        need = target_p0_p1 - (n_p0 + n_p1)
-        p2_idx = np.where(layers == 2)[0]
-        if len(p2_idx) > 0:
-            order = p2_idx[np.argsort(-S1[p2_idx])]
-            promote_to_p1 = order[: min(need, len(order))]
-            layers[promote_to_p1] = 1
-
-    return layers
+    out = []
+    for i in range(n):
+        p2 = p2_candidates_legacy(i)
+        out.append({"P0": [p0_bands[i]], "P0_primary": p0_bands[i], "P1": p1_bands_list[i], "P2": p2})
+    return out

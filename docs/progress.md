@@ -297,6 +297,11 @@ flowchart LR
 | dependency_score | snr_db | `1 - robust_norm(snr_db)`. SNR 낮을수록 의존성 높음 |
 | JSON | — | `snr_db`, `masking_low`, `masking_mid`, `masking_high`, `dependency_score` |
 
+**06_layered_export.py**
+
+- **Band 기반 역할 할당** (layering.md): `assign_roles_by_band(energy_extras, dependency=..., focus=...)` → role_composition. P0 = 대역별 에너지 argmax, P1 = MVP 생략, P2 = dependency/focus gate + P0 제외 나머지 대역.
+- **저장**: `write_layered_json(ctx, metrics, role_composition, path, ...)` → `onset_events_layered.json`. events[].**bands** `[{ band, role }]`, 호환용 **layer** (deprecated).
+
 ---
 
 ## 3. 오디오 엔진 (파일별)
@@ -385,7 +390,7 @@ drums stem 확보 → 01_explore·03_visualize_point 드럼 입력으로 사용.
 
 - **JsonUploader**: JSON 업로드 → `parseEventsFromJson` → `EventPoint[]`.
 - **WaveformWithOverlay**: 파형 + 이벤트(세로선/마커), 레이어별 토글.
-- **parseEvents.ts**: `onset_times_sec` 단일 배열 또는 `events` 배열 → `{ t, strength?, color?, layer? }` 정규화.
+- **parseEvents.ts**: `onset_times_sec` 단일 배열 또는 `events` 배열 → `{ t, strength?, color?, layer? }` 정규화. (의미적 역할은 JSON `bands` 기준, `layer`는 시각화 호환용.)
 
 **핵심**  
 `onset_beats.json` 또는 `events` JSON 업로드 시 파형 위 타격점 표시.
@@ -400,7 +405,7 @@ drums stem 확보 → 01_explore·03_visualize_point 드럼 입력으로 사용.
 | docs/onset_module.md | onset 모듈 구조·공개 API·검증 |
 | docs/pipeline.md | 데이터 흐름·스크립트 01~06 |
 | docs/json_spec.md | 파일별 JSON 스키마·Web 수용 형식 |
-| docs/layering.md | 레이어링 설계·점수 공식·apply_layer_floor |
+| docs/layering.md | band 기반 역할·레이어링 설계(assign_roles_by_band, bands) |
 | docs/onset_stability.md | 같은 비트·다른 값 안정화 계획 |
 | docs/dev_onboarding.md | 환경·실행 순서·검증 한 번에 |
 | docs/progress.md | 본 문서 — 진행 상황·값 가공·점수 해석 |

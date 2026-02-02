@@ -1,6 +1,6 @@
 """
 L5 I/O Adapters: JSON·경로·웹 복사 (도메인 결과 ↔ 파일시스템).
-스키마별 JSON 쓰기, web/public 복사. L1 타입, L2 Context, L3 결과, L4 layer 사용.
+스키마별 JSON 쓰기, web/public 복사. L1 타입, L2 Context, L3 결과, L4 role_composition 사용.
 """
 from __future__ import annotations
 
@@ -277,28 +277,35 @@ def write_context_json(
     return path
 
 
-# 레이어별 시각화용 색상 (P0=저정밀, P1=중정밀, P2=고정밀)
+# 역할별 시각화용 색상 (P0=메인, P1=패턴, P2=뉘앙스)
 LAYER_COLORS = {"P0": "#2ecc71", "P1": "#f39c12", "P2": "#3498db"}
 
 
 def write_layered_json(
     ctx: OnsetContext,
     metrics: dict[str, np.ndarray],
-    layer_indices: np.ndarray,
+    role_composition: list[dict],
     path: Path | str,
     source: str = "unknown",
     project_root: Optional[Path | str] = None,
 ) -> Path:
     """
-    레이어 할당 결과 + 5개 지표를 한 JSON으로 저장.
-    events[] 각 항목: time, layer ("P0"|"P1"|"P2"), strength, color, energy_score, clarity_score, temporal_score, focus_score, dependency_score.
-    웹에서 파형 위 레이어별 포인트 디스플레이용.
+    band 기반 역할 구성 + 5개 지표를 한 JSON으로 저장.
+    events[] 각 항목: time, t, roles: { P0: band[], P1: band[], P2: band[] }, layer(시각화용 주 역할), color.
+    P0/P1 중복 허용(같은 band가 P0+P1 가능). 의미적 판단은 roles 기준.
     """
     path = Path(path)
     _ensure_dir(path)
-    layer_names = np.array(["P0", "P1", "P2"])
-    labels = layer_names[layer_indices]
-    counts = {name: int(np.sum(layer_indices == i)) for i, name in enumerate(layer_names)}
+    n_events = ctx.n_events
+    n_comp = len(role_composition)
+    # 카운트는 실제 내보내는 이벤트 수 기준. P0=이벤트 수, P1/P2=역할이 하나라도 있는 이벤트 수
+    role_band_counts = {"P0": n_events, "P1": 0, "P2": 0}
+    for i in range(min(n_events, n_comp)):
+        ev = role_composition[i]
+        if ev.get("P1"):
+            role_band_counts["P1"] += 1
+        if ev.get("P2"):
+            role_band_counts["P2"] += 1
 
     E = metrics["energy"]
     C = metrics["clarity"]
@@ -311,17 +318,23 @@ def write_layered_json(
         "sr": int(ctx.sr),
         "duration_sec": round(float(ctx.duration), 4),
         "total_events": ctx.n_events,
-        "layer_counts": counts,
+        "layer_counts": role_band_counts,
         "events": [],
     }
-    for i in range(ctx.n_events):
-        layer = str(labels[i])
+    for i in range(n_events):
+        comp = role_composition[i] if i < n_comp else {"P0": ["mid"], "P1": [], "P2": []}
+        p0_bands = comp["P0"] if isinstance(comp["P0"], list) else [comp["P0"]]
+        p1_list = list(comp.get("P1") or [])
+        p2_list = list(comp.get("P2") or [])
+        roles = {"P0": sorted(p0_bands), "P1": sorted(p1_list), "P2": p2_list}
+        primary = "P2" if p2_list else "P1" if p1_list else "P0"
         out["events"].append({
             "time": round(float(ctx.onset_times[i]), 4),
             "t": round(float(ctx.onset_times[i]), 4),
-            "layer": layer,
+            "roles": roles,
+            "layer": primary,
             "strength": round(float(ctx.strengths[i]), 4),
-            "color": LAYER_COLORS.get(layer, DEFAULT_POINT_COLOR),
+            "color": LAYER_COLORS.get(primary, DEFAULT_POINT_COLOR),
             "energy_score": round(float(E[i]), 4),
             "clarity_score": round(float(C[i]), 4),
             "temporal_score": round(float(T[i]), 4),

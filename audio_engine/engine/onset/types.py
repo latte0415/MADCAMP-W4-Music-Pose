@@ -5,7 +5,7 @@ OnsetContext, 이벤트/메타 타입 정의. 외부 라이브러리/경로 의�
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -14,6 +14,7 @@ import numpy as np
 class OnsetContext:
     """
     Onset 검출·정제 후의 공통 데이터. L2 pipeline이 생성하고 L3 feature 모듈에 전달.
+    band_evidence: (선택) 이벤트별 대역 증거. evidence[i]["low"] = {"present": bool, "onset_strength": float, "dt": float} 또는 None.
     """
     y: np.ndarray
     sr: int
@@ -29,6 +30,8 @@ class OnsetContext:
     grid_times: Optional[np.ndarray] = None
     grid_levels: Optional[np.ndarray] = None
     bpm_dynamic_used: bool = False
+    # Anchor + band evidence: 이벤트는 anchor 기준 1개, 각 이벤트에 low/mid/high 증거 연결
+    band_evidence: Optional[list[dict[str, Any]]] = None
 
     @property
     def n_events(self) -> int:
