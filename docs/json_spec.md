@@ -110,7 +110,21 @@
 
 ---
 
-## 10. Web (시각화) — 수용 JSON 형식
+## 10. 07_streams_sections.py → streams_sections.json
+
+**출력 경로**: `audio_engine/samples/streams_sections.json`
+
+**스키마 (최상위)**: `source`, `sr`, `duration_sec`, `streams[]`, `sections[]`, `keypoints[]`.
+
+**streams[]**: band별 IOI·시간 연속성으로 묶은 리듬 스트림. `id`, `band`, `start`, `end`, `events`, `median_ioi`, `ioi_std`, `density`, `strength_median`, `accents`.
+
+**sections[]**: 윈도우별 스트림 상태 벡터 변화점에서 나눈 파트. `id`, `start`, `end`, `active_stream_ids`, `summary`.
+
+**keypoints[]**: 섹션 경계 + 스트림 accent. `time`, `type` ("section_boundary" | "accent"), `section_id`?, `stream_id`?, `label`.
+
+---
+
+## 11. Web (시각화) — 수용 JSON 형식
 
 **수용 형식**: `onset_times_sec` 단일 배열, `events[]` 배열, 최상위 배열 직접.  
 필드: `t`/`time`, `strength`, `color`, `layer`, (선택) `texture`, `texture_hz`.  

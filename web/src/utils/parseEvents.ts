@@ -4,6 +4,8 @@ import type { ClarityEvent, ClarityJsonData } from "../types/clarityEvent";
 import type { TemporalEvent, TemporalJsonData } from "../types/temporalEvent";
 import type { SpectralEvent, SpectralJsonData } from "../types/spectralEvent";
 import type { ContextEvent, ContextJsonData } from "../types/contextEvent";
+import type { StreamsSectionsData } from "../types/streamsSections";
+import type { DrumBandEnergyJsonData } from "../types/drumBandEnergy";
 
 const DEFAULT_POINT_COLOR = "#5a9fd4";
 
@@ -296,6 +298,58 @@ export function parseEventsFromJson(data: unknown): EventPoint[] {
   }
 
   return [];
+}
+
+/** drum_band_energy.json 형식 (bands: { low, mid, high } 각각 [ { t, energy } ]) */
+export function parseDrumBandEnergyJson(data: unknown): DrumBandEnergyJsonData | null {
+  if (!data || typeof data !== "object") return null;
+  const obj = data as Record<string, unknown>;
+  const bandsRaw = obj.bands;
+  if (!bandsRaw || typeof bandsRaw !== "object") return null;
+  const b = bandsRaw as Record<string, unknown>;
+  const lowArr = Array.isArray(b.low) ? b.low : [];
+  const midArr = Array.isArray(b.mid) ? b.mid : [];
+  const highArr = Array.isArray(b.high) ? b.high : [];
+  const toEvents = (arr: unknown[]) =>
+    arr
+      .filter((item): item is Record<string, unknown> => item != null && typeof item === "object")
+      .map((item) => ({
+        t: Number(item.t ?? 0),
+        energy: Number(item.energy ?? 0),
+      }));
+
+  return {
+    bands: {
+      low: toEvents(lowArr),
+      mid: toEvents(midArr),
+      high: toEvents(highArr),
+    },
+    meta: {
+      source: String(obj.source ?? ""),
+      duration_sec: Number(obj.duration_sec ?? 0),
+      sr: Number(obj.sr ?? 22050),
+    },
+  };
+}
+
+/** 07_streams_sections → streams_sections.json 형식 (events 있으면 P0/P1/P2 roles 파싱) */
+export function parseStreamsSectionsJson(data: unknown): StreamsSectionsData | null {
+  if (!data || typeof data !== "object") return null;
+  const obj = data as Record<string, unknown>;
+  if (!Array.isArray(obj.streams) || !Array.isArray(obj.sections) || !Array.isArray(obj.keypoints))
+    return null;
+  const events = Array.isArray(obj.events)
+    ? (obj.events as Record<string, unknown>[]).map((item) => normalizeEvent(item))
+    : undefined;
+  return {
+    source: String(obj.source ?? ""),
+    sr: Number(obj.sr ?? 22050),
+    duration_sec: Number(obj.duration_sec ?? 0),
+    streams: obj.streams as StreamsSectionsData["streams"],
+    sections: obj.sections as StreamsSectionsData["sections"],
+    keypoints: obj.keypoints as StreamsSectionsData["keypoints"],
+    events,
+  };
 }
 
 const LAYER_COLORS: Record<string, string> = {

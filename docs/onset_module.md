@@ -19,8 +19,10 @@
 | L3 | `onset/features/spectral.py` | `compute_spectral` |
 | L3 | `onset/features/context.py` | `compute_context_dependency` |
 | L4 | `onset/scoring.py` | `normalize_metrics_per_track`, `assign_roles_by_band` (band 기반 역할 할당) |
-| L5 | `onset/export.py` | `write_energy_json`, `write_clarity_json`, `write_temporal_json`, `write_spectral_json`, `write_context_json`, `write_layered_json(ctx, metrics, role_composition, path, ...)` |
-| L6 | `audio_engine/scripts/02_layered_onset_export/01_energy.py` ~ `06_layered_export.py` | 엔트리 스크립트 |
+| L2-ext | `onset/streams.py` | `build_streams(band_onset_times, band_onset_strengths)` |
+| L2-ext | `onset/sections.py` | `segment_sections(streams, duration)` |
+| L5 | `onset/export.py` | `write_energy_json`, …, `write_layered_json`, `write_streams_sections_json` |
+| L6 | `audio_engine/scripts/02_layered_onset_export/01_energy.py` ~ `07_streams_sections.py` | 엔트리 스크립트 |
 
 ---
 
@@ -62,6 +64,9 @@ from audio_engine.engine.onset import (
     write_spectral_json,
     write_context_json,
     write_layered_json,
+    write_streams_sections_json,
+    build_streams,
+    segment_sections,
 )
 ```
 
@@ -86,6 +91,9 @@ from audio_engine.engine.onset import (
 | `grid_times` | np.ndarray \| None | (Temporal) 그리드 시점 |
 | `grid_levels` | np.ndarray \| None | (Temporal) 그리드 레벨 |
 | `bpm_dynamic_used` | bool | 로컬 템포 사용 여부 |
+| `band_evidence` | list[dict] \| None | (build_context_with_band_evidence) 이벤트별 low/mid/high 증거 |
+| `band_onset_times` | dict[str, np.ndarray] \| None | (build_context_with_band_evidence) band별 onset 시퀀스. 스트림/섹션용 |
+| `band_onset_strengths` | dict[str, np.ndarray] \| None | (build_context_with_band_evidence) band별 onset strength |
 
 ---
 

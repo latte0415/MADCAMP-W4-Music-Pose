@@ -33,7 +33,7 @@ print(f"Librosa 버전: {librosa.__version__}")
 # 원본 예: sample_ropes_short.mp3, sample_cardmani.mp3
 # 드럼 스템 예: .../stems/htdemucs/sample_ropes_short/drums.wav
 # audio_path = os.path.join(project_root, 'audio_engine', 'samples', 'sample_ropes_short.mp3')
-audio_path = os.path.join(project_root, 'audio_engine', 'samples', 'stems', 'htdemucs', 'sample_ropes_short', 'drums.wav')
+audio_path = os.path.join(project_root, 'audio_engine', 'samples', 'stems', 'htdemucs', 'sample_animal_spirits', 'drums.wav')
 
 if os.path.exists(audio_path):
     y, sr = librosa.load(audio_path)

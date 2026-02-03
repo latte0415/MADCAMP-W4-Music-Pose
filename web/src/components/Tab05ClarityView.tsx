@@ -29,6 +29,7 @@ export function Tab05ClarityView({ audioUrl, clarityData }: Tab05ClarityViewProp
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [overlayWidth, setOverlayWidth] = useState(0);
   const [visibleRange, setVisibleRange] = useState<[number, number]>([0, 1]);
   const [minPxPerSec, setMinPxPerSec] = useState(DEFAULT_MIN_PX_PER_SEC);
@@ -67,6 +68,9 @@ export function Tab05ClarityView({ audioUrl, clarityData }: Tab05ClarityViewProp
     });
     ws.on("audioprocess", (t: number) => setCurrentTime(t));
     ws.on("seeking", (t: number) => setCurrentTime(t));
+    ws.on("play", () => setIsPlaying(true));
+    ws.on("pause", () => setIsPlaying(false));
+    ws.on("finish", () => setIsPlaying(false));
     wavesurferRef.current = ws;
     return () => {
       ws.destroy();
@@ -154,7 +158,7 @@ export function Tab05ClarityView({ audioUrl, clarityData }: Tab05ClarityViewProp
     <div className="tab05-clarity-view">
       <div className="waveform-controls">
         <button type="button" onClick={togglePlay} disabled={duration === 0}>
-          재생
+          {isPlaying ? "일시정지" : "재생"}
         </button>
         <span className="time-display">
           {formatTime(currentTime)} / {formatTime(duration)}

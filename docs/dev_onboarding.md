@@ -36,7 +36,13 @@
    python audio_engine/scripts/02_layered_onset_export/06_layered_export.py
    ```
 
-- 산출: `audio_engine/samples/onset_events_*.json`, `onset_events_layered.json`.  
+3. **(선택) 스트림·섹션 JSON**  
+   ```bash
+   python audio_engine/scripts/02_layered_onset_export/07_streams_sections.py
+   ```
+   - `build_context_with_band_evidence` 필요. 산출: `streams_sections.json`.
+
+- 산출: `audio_engine/samples/onset_events_*.json`, `onset_events_layered.json`, (선택) `streams_sections.json`.  
 - `web/public/` 이 있으면 동일 파일이 복사됨.
 
 ---

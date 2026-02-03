@@ -1,7 +1,8 @@
 """
-09. Layered Export (레이어별 JSON 추출)
+06. Layered Export (레이어별 JSON 추출)
 5개 피처 계산 → P0/P1/P2 스코어·할당 → 레이어별 통합 JSON 저장.
-엔트리: engine.onset 사용.
+
+LEGACY: 11_cnn_streams_layers.py에서 stream-layer 이벤트 출력으로 대체. 실행 비활성화.
 """
 import sys
 import os
@@ -31,6 +32,10 @@ from audio_engine.engine.onset import (
     assign_roles_by_band,
     write_layered_json,
 )
+
+# LEGACY: 실행 비활성화. 11_cnn_streams_layers.py 사용 권장.
+if __name__ == "__main__":
+    sys.exit("LEGACY: Use 11_cnn_streams_layers.py for stream-layer events.")
 
 # %%
 # 기본 입력: 샘플 오디오 (필요 시 경로 변경)

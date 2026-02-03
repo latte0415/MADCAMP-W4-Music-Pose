@@ -12,6 +12,10 @@ interface LayerTimelineStripProps {
   height: number;
   /** 행 전체 색상(roles 기반 중복 표시 시 해당 행 색으로 통일) */
   stripColor?: string;
+  /** 포인트 기본 opacity (겹침 시 블렌딩 보이게 하려면 0.7~0.8) */
+  pointOpacity?: number;
+  /** 배경에 파형을 넣을 컨테이너 ref (부모가 WaveSurfer 마운트) */
+  waveformBackgroundRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export function LayerTimelineStrip({
@@ -21,6 +25,8 @@ export function LayerTimelineStrip({
   visibleRange,
   height,
   stripColor,
+  pointOpacity = 0.6,
+  waveformBackgroundRef,
 }: LayerTimelineStripProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -45,7 +51,7 @@ export function LayerTimelineStrip({
     const lo = eventTime - ACTIVATE_BEFORE_SEC;
     const hi = eventTime + ACTIVATE_AFTER_SEC;
     if (currentTime >= lo && currentTime <= hi) return 1;
-    return 0.6;
+    return pointOpacity;
   };
 
   const r = Math.max(3, Math.min(6, height * 0.25));
@@ -57,7 +63,15 @@ export function LayerTimelineStrip({
         <span className="layer-timeline-label">{label}</span>
         <span className="layer-timeline-count">{events.length}개</span>
       </div>
-      <div className="layer-timeline-svg-wrap" ref={wrapRef} style={{ height }}>
+      <div className="layer-timeline-svg-wrap" style={{ position: "relative", height }}>
+        {waveformBackgroundRef && (
+          <div
+            ref={waveformBackgroundRef}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+            aria-hidden
+          />
+        )}
+        <div ref={wrapRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
         <svg
           width={width}
           height={height}
@@ -82,6 +96,7 @@ export function LayerTimelineStrip({
             strokeWidth={1.5}
           />
         </svg>
+        </div>
       </div>
     </div>
   );

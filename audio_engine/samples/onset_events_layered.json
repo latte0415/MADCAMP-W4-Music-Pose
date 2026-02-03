@@ -16878,5 +16878,333 @@
       "focus_score": 0.8484,
       "dependency_score": 0.406
     }
+  ],
+  "streams": [
+    {
+      "id": "low_0",
+      "band": "low",
+      "start": 0.9056,
+      "end": 3.1927,
+      "events": [
+        0.9056,
+        3.1927
+      ],
+      "median_ioi": 2.2872,
+      "ioi_std": 0.0,
+      "density": 0.8744,
+      "strength_median": 0.2664,
+      "accents": []
+    },
+    {
+      "id": "low_1",
+      "band": "low",
+      "start": 118.4218,
+      "end": 120.6973,
+      "events": [
+        118.4218,
+        118.979,
+        119.5944,
+        120.082,
+        120.6973
+      ],
+      "median_ioi": 0.5863,
+      "ioi_std": 0.0526,
+      "density": 2.1973,
+      "strength_median": 0.4362,
+      "accents": []
+    },
+    {
+      "id": "low_2",
+      "band": "low",
+      "start": 138.3561,
+      "end": 141.3631,
+      "events": [
+        138.3561,
+        138.658,
+        138.9598,
+        139.2617,
+        139.5403,
+        139.8538,
+        140.1556,
+        140.4459,
+        140.7361,
+        141.0496,
+        141.3631
+      ],
+      "median_ioi": 0.3019,
+      "ioi_std": 0.011,
+      "density": 3.6582,
+      "strength_median": 0.5974,
+      "accents": []
+    },
+    {
+      "id": "low_3",
+      "band": "low",
+      "start": 140.0163,
+      "end": 144.4978,
+      "events": [
+        140.0163,
+        140.3066,
+        140.6084,
+        140.9103,
+        141.2122,
+        141.5024,
+        141.8043,
+        142.1061,
+        142.408,
+        142.6982,
+        143.0001,
+        143.302,
+        143.6038,
+        143.8941,
+        144.2075,
+        144.4978
+      ],
+      "median_ioi": 0.3019,
+      "ioi_std": 0.0067,
+      "density": 3.5703,
+      "strength_median": 0.5353,
+      "accents": []
+    },
+    {
+      "id": "mid_0",
+      "band": "mid",
+      "start": 0.058,
+      "end": 4.0054,
+      "events": [
+        0.058,
+        4.0054
+      ],
+      "median_ioi": 3.9474,
+      "ioi_std": 0.0,
+      "density": 0.5067,
+      "strength_median": 8.6737,
+      "accents": []
+    },
+    {
+      "id": "mid_1",
+      "band": "mid",
+      "start": 76.742,
+      "end": 80.1669,
+      "events": [
+        76.742,
+        77.3341,
+        77.7868,
+        78.379,
+        79.1104,
+        79.598,
+        80.1669
+      ],
+      "median_ioi": 0.5805,
+      "ioi_std": 0.089,
+      "density": 2.0438,
+      "strength_median": 2.91,
+      "accents": []
+    },
+    {
+      "id": "mid_2",
+      "band": "mid",
+      "start": 143.1394,
+      "end": 144.4862,
+      "events": [
+        143.1394,
+        143.302,
+        143.4413,
+        143.6038,
+        143.7315,
+        143.8941,
+        144.045,
+        144.1959,
+        144.3352,
+        144.4862
+      ],
+      "median_ioi": 0.1509,
+      "ioi_std": 0.0115,
+      "density": 7.4252,
+      "strength_median": 2.4225,
+      "accents": []
+    },
+    {
+      "id": "mid_3",
+      "band": "mid",
+      "start": 151.6263,
+      "end": 155.1906,
+      "events": [
+        151.6263,
+        152.3461,
+        152.9498,
+        153.542,
+        154.0063,
+        154.7146,
+        155.1906
+      ],
+      "median_ioi": 0.5979,
+      "ioi_std": 0.0997,
+      "density": 1.9639,
+      "strength_median": 2.1062,
+      "accents": []
+    },
+    {
+      "id": "high_0",
+      "band": "high",
+      "start": 141.3399,
+      "end": 143.6154,
+      "events": [
+        141.3399,
+        141.4908,
+        141.6417,
+        141.8043,
+        141.932,
+        142.1061,
+        142.2338,
+        142.408,
+        142.5241,
+        142.6866,
+        142.8259,
+        142.9885,
+        143.1394,
+        143.302,
+        143.4413,
+        143.6154
+      ],
+      "median_ioi": 0.1509,
+      "ioi_std": 0.0177,
+      "density": 7.0312,
+      "strength_median": 2.8317,
+      "accents": []
+    }
+  ],
+  "sections": [
+    {
+      "id": 0,
+      "start": 0.0,
+      "end": 138.5,
+      "active_stream_ids": [
+        "low_0",
+        "low_1",
+        "low_2",
+        "mid_0",
+        "mid_1"
+      ],
+      "summary": {
+        "density_low": 0.0,
+        "density_mid": 0.0,
+        "density_high": 0.0,
+        "dominant_band": "low",
+        "n_streams_low": 0,
+        "n_streams_mid": 0,
+        "n_streams_high": 0
+      }
+    },
+    {
+      "id": 1,
+      "start": 138.5,
+      "end": 140.0,
+      "active_stream_ids": [
+        "low_2"
+      ],
+      "summary": {
+        "density_low": 5.0,
+        "density_mid": 0.0,
+        "density_high": 0.0,
+        "dominant_band": "low",
+        "n_streams_low": 2,
+        "n_streams_mid": 0,
+        "n_streams_high": 0
+      }
+    },
+    {
+      "id": 2,
+      "start": 140.0,
+      "end": 141.0,
+      "active_stream_ids": [
+        "low_2",
+        "low_3"
+      ],
+      "summary": {
+        "density_low": 5.0,
+        "density_mid": 0.0,
+        "density_high": 4.0,
+        "dominant_band": "low",
+        "n_streams_low": 2,
+        "n_streams_mid": 0,
+        "n_streams_high": 1
+      }
+    },
+    {
+      "id": 3,
+      "start": 141.0,
+      "end": 142.0,
+      "active_stream_ids": [
+        "low_2",
+        "low_3",
+        "high_0"
+      ],
+      "summary": {
+        "density_low": 3.5,
+        "density_mid": 1.5,
+        "density_high": 6.5,
+        "dominant_band": "high",
+        "n_streams_low": 1,
+        "n_streams_mid": 1,
+        "n_streams_high": 1
+      }
+    },
+    {
+      "id": 4,
+      "start": 142.0,
+      "end": 143.0,
+      "active_stream_ids": [
+        "low_3",
+        "high_0"
+      ],
+      "summary": {
+        "density_low": 3.5,
+        "density_mid": 5.0,
+        "density_high": 4.0,
+        "dominant_band": "mid",
+        "n_streams_low": 1,
+        "n_streams_mid": 1,
+        "n_streams_high": 1
+      }
+    },
+    {
+      "id": 5,
+      "start": 143.0,
+      "end": 144.0,
+      "active_stream_ids": [
+        "low_3",
+        "mid_2",
+        "high_0"
+      ],
+      "summary": {
+        "density_low": 2.0,
+        "density_mid": 3.5,
+        "density_high": 0.0,
+        "dominant_band": "mid",
+        "n_streams_low": 1,
+        "n_streams_mid": 1,
+        "n_streams_high": 0
+      }
+    },
+    {
+      "id": 6,
+      "start": 144.0,
+      "end": 194.6761,
+      "active_stream_ids": [
+        "low_3",
+        "mid_2",
+        "mid_3"
+      ],
+      "summary": {
+        "density_low": 0.0,
+        "density_mid": 0.0,
+        "density_high": 0.0,
+        "dominant_band": "low",
+        "n_streams_low": 0,
+        "n_streams_mid": 0,
+        "n_streams_high": 0
+      }
+    }
   ]
 }

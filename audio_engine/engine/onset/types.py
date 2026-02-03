@@ -32,6 +32,9 @@ class OnsetContext:
     bpm_dynamic_used: bool = False
     # Anchor + band evidence: 이벤트는 anchor 기준 1개, 각 이벤트에 low/mid/high 증거 연결
     band_evidence: Optional[list[dict[str, Any]]] = None
+    # Band별 onset 시퀀스 (스트림/섹션용). build_context_with_band_evidence에서만 채움.
+    band_onset_times: Optional[dict[str, np.ndarray]] = None
+    band_onset_strengths: Optional[dict[str, np.ndarray]] = None
 
     @property
     def n_events(self) -> int:

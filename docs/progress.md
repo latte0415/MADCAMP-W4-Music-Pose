@@ -302,6 +302,12 @@ flowchart LR
 - **Band 기반 역할 할당** (layering.md): `assign_roles_by_band(energy_extras, dependency=..., focus=...)` → role_composition. P0 = 대역별 에너지 argmax, P1 = MVP 생략, P2 = dependency/focus gate + P0 제외 나머지 대역.
 - **저장**: `write_layered_json(ctx, metrics, role_composition, path, ...)` → `onset_events_layered.json`. events[].**bands** `[{ band, role }]`, 호환용 **layer** (deprecated).
 
+**07_streams_sections.py**
+
+- **입력**: `build_context_with_band_evidence()` → `band_onset_times`, `band_onset_strengths`.
+- **흐름**: `build_streams(band_onset_times, band_onset_strengths)` → 스트림 목록. `segment_sections(streams, duration)` → 섹션 목록. 섹션 경계 + 스트림 accent → keypoints.
+- **저장**: `write_streams_sections_json(..., streams, sections, keypoints, events, ...)` → `streams_sections.json`. 작업 과정 상세는 [work_process.md](work_process.md) §1.3 참고.
+
 ---
 
 ## 3. 오디오 엔진 (파일별)
@@ -403,9 +409,10 @@ drums stem 확보 → 01_explore·03_visualize_point 드럼 입력으로 사용.
 |------|------|
 | docs/README.md | 기록 정보 정리·분류·목차 |
 | docs/onset_module.md | onset 모듈 구조·공개 API·검증 |
-| docs/pipeline.md | 데이터 흐름·스크립트 01~06 |
+| docs/pipeline.md | 데이터 흐름·스크립트 01~07 |
 | docs/json_spec.md | 파일별 JSON 스키마·Web 수용 형식 |
 | docs/layering.md | band 기반 역할·레이어링 설계(assign_roles_by_band, bands) |
+| docs/work_process.md | 작업 과정 — 추출·안정화·점수·아키텍처 |
 | docs/onset_stability.md | 같은 비트·다른 값 안정화 계획 |
 | docs/dev_onboarding.md | 환경·실행 순서·검증 한 번에 |
 | docs/progress.md | 본 문서 — 진행 상황·값 가공·점수 해석 |

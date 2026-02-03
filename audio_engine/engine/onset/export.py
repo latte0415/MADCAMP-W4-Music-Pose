@@ -281,6 +281,22 @@ def write_context_json(
 LAYER_COLORS = {"P0": "#2ecc71", "P1": "#f39c12", "P2": "#3498db"}
 
 
+def _streams_to_json_serializable(streams: list[dict]) -> list[dict]:
+    """streams 내 events를 list[float]로, 숫자는 round."""
+    out = []
+    for s in streams:
+        o = dict(s)
+        if "events" in o:
+            o["events"] = [round(float(t), 4) for t in o["events"]]
+        if "strengths" in o and isinstance(o["strengths"], (list, tuple)):
+            o["strengths"] = [round(float(x), 4) for x in o["strengths"]]
+        for key in ("start", "end", "median_ioi", "ioi_std", "density", "strength_median"):
+            if key in o and isinstance(o[key], (int, float)):
+                o[key] = round(float(o[key]), 4)
+        out.append(o)
+    return out
+
+
 def write_layered_json(
     ctx: OnsetContext,
     metrics: dict[str, np.ndarray],
@@ -292,7 +308,6 @@ def write_layered_json(
     """
     band 기반 역할 구성 + 5개 지표를 한 JSON으로 저장.
     events[] 각 항목: time, t, roles: { P0: band[], P1: band[], P2: band[] }, layer(시각화용 주 역할), color.
-    P0/P1 중복 허용(같은 band가 P0+P1 가능). 의미적 판단은 roles 기준.
     """
     path = Path(path)
     _ensure_dir(path)
@@ -343,6 +358,58 @@ def write_layered_json(
         })
     with open(path, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
+    if project_root is not None:
+        _copy_to_web_public(path, Path(project_root))
+    return path
+
+
+def write_streams_sections_json(
+    path: Path | str,
+    source: str,
+    sr: int,
+    duration_sec: float,
+    streams: list[dict],
+    sections: list[dict],
+    keypoints: list[dict],
+    project_root: Optional[Path | str] = None,
+    events: Optional[list[dict]] = None,
+) -> Path:
+    """
+    스트림·섹션·키포인트·(선택) events 저장 (07 전용).
+    events: 정밀도 기반 P0/P1/P2 역할(roles) 포함 시 레이어 표시용.
+    """
+    path = Path(path)
+    _ensure_dir(path)
+    out = {
+        "source": source,
+        "sr": int(sr),
+        "duration_sec": round(float(duration_sec), 4),
+        "streams": _streams_to_json_serializable(streams),
+        "sections": sections,
+        "keypoints": keypoints,
+    }
+    if events is not None:
+        out["events"] = events
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=2)
+    if project_root is not None:
+        _copy_to_web_public(path, Path(project_root))
+    return path
+
+
+def write_drum_band_energy_json(
+    result: dict,
+    path: Path | str,
+    project_root: Optional[Path | str] = None,
+) -> Path:
+    """
+    compute_drum_band_energy() 반환값을 drum_band_energy.json 형식으로 저장.
+    result: { source, duration_sec, sr, total_events, events: [ { t, energy_low, energy_mid, energy_high }, ... ] }
+    """
+    path = Path(path)
+    _ensure_dir(path)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
     if project_root is not None:
         _copy_to_web_public(path, Path(project_root))
     return path

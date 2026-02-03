@@ -24,7 +24,7 @@ print(f"프로젝트 루트: {project_root}")
 # %%
 # 테스트용 오디오 (짧은 샘플 권장 - CPU에서 시간 걸림)
 # audio_path = os.path.join(project_root, 'audio_engine', 'samples', 'sample_cardmani.mp3')
-audio_path = os.path.join(project_root, 'audio_engine', 'samples', 'sample_animal_spirits.mp3')
+audio_path = os.path.join(project_root, 'audio_engine', 'samples', 'sample_animal_spirits_3_45.wav')
 
 if not os.path.exists(audio_path):
     # 짧은 샘플 없으면 전체 샘플 사용

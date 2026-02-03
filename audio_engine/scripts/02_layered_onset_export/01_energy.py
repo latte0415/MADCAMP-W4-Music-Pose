@@ -30,7 +30,7 @@ audio_path = os.path.join(
     "samples",
     "stems",
     "htdemucs",
-    "sample_ropes_short",
+    "sample_animal_spirits_3_45",
     "drums.wav",
 )
 # audio_path = os.path.join(project_root, "audio_engine", "samples", "sample_drum_basic_60.mp3")

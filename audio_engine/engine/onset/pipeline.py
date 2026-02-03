@@ -25,6 +25,7 @@ from audio_engine.engine.onset.constants import (
 )
 
 
+# LEGACY (librosa): 신규 파이프라인은 CNN 기반 10_cnn_band_onsets, 11_cnn_streams_layers 사용.
 def detect_onsets(
     y: np.ndarray,
     sr: int,
@@ -34,6 +35,7 @@ def detect_onsets(
 ):
     """
     Onset 검출. (onset_frames, onset_times, onset_env, strengths) 반환.
+    LEGACY: 01~05 스크립트용. 신규는 CNN(10,11) 사용.
     """
     onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
     onset_frames = librosa.onset.onset_detect(
@@ -51,6 +53,7 @@ def detect_onsets(
     return onset_frames, onset_times, onset_env, strengths
 
 
+# LEGACY (librosa)
 def refine_onset_times(
     y: np.ndarray,
     sr: int,
@@ -63,6 +66,7 @@ def refine_onset_times(
     """
     각 onset 주변 ±win_refine_sec 구간만 hop_refine으로 재계산 후 피크 프레임으로 정제.
     (onset_frames_refined, onset_times_refined) 반환.
+    LEGACY: detect_onsets와 함께 사용. 신규는 CNN(10,11) 사용.
     """
     n = len(onset_frames)
     onset_frames_refined = []
@@ -95,6 +99,7 @@ def refine_onset_times(
     return np.array(onset_frames_refined), np.array(onset_times_refined)
 
 
+# LEGACY (librosa): build_context_with_band_evidence 내부 사용
 def _build_temporal_aux(
     y: np.ndarray,
     sr: int,
@@ -234,6 +239,7 @@ def _attach_band_evidence(
     return out
 
 
+# LEGACY (librosa): 07_streams_sections 사용. 신규는 11_cnn_streams_layers 사용.
 def build_context_with_band_evidence(
     audio_path: Union[str, Path],
     *,
@@ -248,6 +254,7 @@ def build_context_with_band_evidence(
     """
     Anchor(broadband onset) 1회 검출 후, 대역별 onset을 ±tol 내에서만 해당 anchor에 evidence로 연결.
     merge로 이벤트를 생성하지 않음. 이벤트 수 = anchor 수.
+    LEGACY: 07 스크립트용. 신규는 11_cnn_streams_layers 사용.
     """
     path = Path(audio_path)
     if not path.exists():
@@ -265,20 +272,44 @@ def build_context_with_band_evidence(
     )
     strengths = onset_env[onset_frames]
 
-    # 대역별 onset (검출만, merge로 합치지 않음)
-    y_low, y_mid, y_high = filter_y_into_bands(y, sr, BAND_HZ)
+    # 대역별 onset: drum_low/mid/high 파일이 있으면 사용, 없으면 전대역을 bandpass로 분할
+    band_dir = path.parent
+    drum_low_p = band_dir / "drum_low.wav"
+    drum_mid_p = band_dir / "drum_mid.wav"
+    drum_high_p = band_dir / "drum_high.wav"
+    if path.name == "drums.wav" and drum_low_p.exists() and drum_mid_p.exists() and drum_high_p.exists():
+        y_low, _ = librosa.load(drum_low_p, sr=sr, mono=True)
+        y_mid, _ = librosa.load(drum_mid_p, sr=sr, mono=True)
+        y_high, _ = librosa.load(drum_high_p, sr=sr, mono=True)
+    else:
+        y_low, y_mid, y_high = filter_y_into_bands(y, sr, BAND_HZ)
     band_times_list = []
     band_strengths_list = []
     for y_band in (y_low, y_mid, y_high):
-        frames_b, times_b, _, strengths_b = detect_onsets(
+        frames_b, times_b, env_b, _ = detect_onsets(
             y_band, sr, hop_length=hop_length, delta=delta, wait=wait
         )
+        frames_b, times_b = refine_onset_times(
+            y_band, sr, frames_b, times_b,
+            hop_length=hop_length, hop_refine=hop_refine, win_refine_sec=win_refine_sec,
+        )
+        strengths_b = env_b[frames_b] if len(frames_b) > 0 else np.array([])
         band_times_list.append(times_b)
         band_strengths_list.append(strengths_b)
 
     band_evidence = _attach_band_evidence(
         onset_times, band_times_list, band_strengths_list, tol_sec=evidence_tol_sec
     )
+    band_onset_times = {
+        "low": band_times_list[0],
+        "mid": band_times_list[1],
+        "high": band_times_list[2],
+    }
+    band_onset_strengths = {
+        "low": band_strengths_list[0],
+        "mid": band_strengths_list[1],
+        "high": band_strengths_list[2],
+    }
 
     tempo_global, _ = librosa.beat.beat_track(y=y, sr=sr, hop_length=hop_length)
     bpm = float(np.asarray(tempo_global).flat[0]) if np.size(tempo_global) > 0 else 90.0
@@ -312,9 +343,12 @@ def build_context_with_band_evidence(
         grid_levels=grid_levels,
         bpm_dynamic_used=bpm_dynamic_used,
         band_evidence=band_evidence,
+        band_onset_times=band_onset_times,
+        band_onset_strengths=band_onset_strengths,
     )
 
 
+# LEGACY (librosa): 01~06 스크립트용. 신규는 CNN(10,11) 사용.
 def build_context(
     audio_path: Union[str, Path],
     *,
@@ -328,6 +362,7 @@ def build_context(
     """
     오디오 파일에서 OnsetContext 생성.
     include_temporal=True이면 beats_dynamic, grid_times, grid_levels 등 채움 (temporal 모듈용).
+    LEGACY: 01~05, 06 스크립트용. 신규 파이프라인은 CNN(10,11) 사용.
     """
     path = Path(audio_path)
     if not path.exists():

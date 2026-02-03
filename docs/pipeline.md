@@ -13,6 +13,7 @@
     → Step 3 시각화 (03_visualize_point) → onset_events.json
     → 레이어드 익스포트 (01_energy ~ 05_context) → onset_events_energy|clarity|temporal|spectral|context.json
     → 레이어 통합 (06_layered_export)  → onset_events_layered.json
+    → 스트림·섹션 (07_streams_sections) → streams_sections.json (streams, sections, keypoints)
     → Web (JsonUploader, parseEvents) → 파형 위 이벤트/레이어 표시
 ```
 
@@ -38,6 +39,7 @@
 | 04_spectral | `audio_engine/scripts/02_layered_onset_export/04_spectral.py` | Spectral(focus) | `onset_events_spectral.json` |
 | 05_context | `audio_engine/scripts/02_layered_onset_export/05_context.py` | Context(dependency) | `onset_events_context.json` |
 | **06_layered_export** | `audio_engine/scripts/02_layered_onset_export/06_layered_export.py` | 5개 피처 + band 기반 역할(P0/P1/P2) 할당 | `onset_events_layered.json` |
+| **07_streams_sections** | `audio_engine/scripts/02_layered_onset_export/07_streams_sections.py` | band_onset_times → build_streams → segment_sections → 키포인트 → JSON | `streams_sections.json` |
 
 02_layered_onset_export 스크립트는 모두 `audio_engine.engine.onset`만 사용합니다.
 
